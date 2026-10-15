@@ -34,7 +34,17 @@ export function createWorld(canvas, onComplete) {
   scene.add(contentRoot);
   const tree = createTree();
   contentRoot.add(tree.root);
-  const ribbons = createRibbons();
+  const ribbons = createRibbons(() => {
+    const rect = canvas.getBoundingClientRect();
+    camera.aspect = rect.width / rect.height;
+    camera.updateProjectionMatrix();
+    controls.update();
+    camera.updateMatrixWorld();
+    // Project the actual tree base, including the orbit camera's current angle.
+    const base = tree.root.localToWorld(new THREE.Vector3(0, .12, 0)).project(camera);
+    return { x: rect.left + (base.x + 1) * rect.width / 2,
+      y: rect.top + (1 - base.y) * rect.height / 2 };
+  });
   const awakening = createAwakening(tree, onComplete, ribbons);
   awakening.start(0);
   const positions = new Float32Array(55 * 3);
