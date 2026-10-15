@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createRibbons } from './ribbons.js';
+import { createTreeMotes } from './tree-motes.js';
 import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
 import { createContentRoot } from '../integrations/content.js';
@@ -47,18 +48,7 @@ export function createWorld(canvas, onComplete) {
   });
   const awakening = createAwakening(tree, onComplete, ribbons);
   awakening.start(0);
-  const positions = new Float32Array(55 * 3);
-  let seed = 2026;
-  const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  for (let i = 0; i < 55; i++) {
-    positions[i * 3] = (random() - .5) * 7;
-    positions[i * 3 + 1] = random() * 5;
-    positions[i * 3 + 2] = (random() - .5) * 5;
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const dust = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xddbd76, size: .022, transparent: true, opacity: .65, depthWrite: false }));
-  scene.add(dust);
+  const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const resize = () => {
     const { width, height } = canvas.parentElement.getBoundingClientRect();
@@ -73,6 +63,7 @@ export function createWorld(canvas, onComplete) {
   resize();
   let frame;
   let time = 0;
+  let sequenceStart = 0;
   let previous = performance.now();
   function animate(now) {
     frame = requestAnimationFrame(animate);
@@ -81,13 +72,13 @@ export function createWorld(canvas, onComplete) {
     if (document.hidden) return;
     time += delta;
     controls.update();
-    if (!reducedMotion.matches) dust.rotation.y = time * .025;
+    motes.update(time-sequenceStart, reducedMotion.matches);
     awakening.update(time, reducedMotion.matches);
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
   return {
-    awaken: () => awakening.start(time),
+    awaken: () => { sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();

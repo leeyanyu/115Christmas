@@ -14,35 +14,30 @@ export function createRibbons(getLandingPoint) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(48, 1, .1, 40);
   camera.position.z = 8;
-  const segments = 100;
+  const segments = 320;
   const strips = [];
   const fragmentShader = `
     uniform float time;
     uniform float opacity;
     uniform float seed;
-    uniform float dissolve;
     varying vec2 vUv;
     float gaussian(float x, float width) { return exp(-x*x/width); }
     void main() {
       float x = vUv.y * 2.0 - 1.0;
       float s = vUv.x;
-      float wave = sin(s*7.0-time*.55+seed)*.04;
-      x += wave;
-      float distanceBlur = smoothstep(.45,1.0,s);
-      float glow = gaussian(x,.38)*.38 + gaussian(x,.14)*.4;
-      float core = gaussian(x,mix(.018,.15,distanceBlur)) * mix(.85,.28,distanceBlur);
-      // Broad, overlapping light veils replace parallel wires and packet-like sparks.
-      float silk = gaussian(x-.12*sin(s*5.0-time*.4+seed),.04)*.13;
-      float breath = .92+.08*sin(s*7.0-time*1.1+seed);
-      float endFade = smoothstep(0.0,.08,s)*(1.0-smoothstep(.68,1.0,s));
-      vec3 amber = vec3(.65,.47,.26)*glow;
-      vec3 light = amber + vec3(.95,.86,.65)*core + vec3(.72,.6,.42)*silk;
-      float feather = 1.0-smoothstep(.55,1.0,abs(x));
-      float grain = .2 + .6*(.5+.5*sin(s*131.0+seed)*sin(s*57.0-seed));
-      float remaining = 1.0-smoothstep(grain-.12,grain+.12,dissolve);
-      gl_FragColor = vec4(light*feather*breath, endFade*opacity*remaining);
+      float fold = sin(s*8.0-time*.65+seed);
+      float body = 1.0-smoothstep(.46,.68,abs(x));
+      float sheen = gaussian(x-fold*.28,.035);
+      float edgeLight = gaussian(abs(x)-.48,.008)*.3;
+      float halo = gaussian(x,.45)*.14;
+      vec3 gold = mix(vec3(.55,.32,.10),vec3(.94,.72,.36),.5+.5*fold);
+      vec3 satin = gold + vec3(.42,.34,.20)*sheen + vec3(.28,.20,.09)*edgeLight;
+      vec3 color = mix(vec3(.95,.69,.32),satin,body);
+      float endFade = smoothstep(0.0,.09,s)*(1.0-smoothstep(.88,1.0,s));
+      float feather = 1.0-smoothstep(.75,1.0,abs(x));
+      gl_FragColor = vec4(color,(body*.83+halo)*feather*endFade*opacity);
     }`;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     const positions = new Float32Array((segments + 1) * 6);
     const uvs = new Float32Array((segments + 1) * 4);
     const indices = [];
@@ -55,9 +50,9 @@ export function createRibbons(getLandingPoint) {
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     const material = new THREE.ShaderMaterial({
-      uniforms: { time: { value: 0 }, opacity: { value: 0 }, seed: { value: i * 2.17 }, dissolve: { value: 0 } },
+      uniforms: { time: { value: 0 }, opacity: { value: 0 }, seed: { value: i * 2.17 } },
       vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-      fragmentShader, transparent: true, blending: THREE.AdditiveBlending,
+      fragmentShader, transparent: true, blending: THREE.NormalBlending,
       depthWrite: false, depthTest: false, side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(geometry, material);
@@ -88,23 +83,33 @@ export function createRibbons(getLandingPoint) {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
-    // All entry points stay beyond the viewport edges in portrait and landscape.
-    const h = Math.tan(THREE.MathUtils.degToRad(24)) * 6;
-    const w = h * camera.aspect;
-    const entries = [[-1.2,-1.2],[1.2,-1.15],[-1.3,.1],[1.3,.25],[-.75,1.3],[.85,1.3]];
     const landing = getLandingPoint();
-    const farH = Math.tan(THREE.MathUtils.degToRad(24)) * 11;
-    const destination = new THREE.Vector3((landing.x/innerWidth*2-1)*farH*camera.aspect, (1-landing.y/innerHeight*2)*farH, -3);
+    const end = [landing.x / innerWidth, landing.y / innerHeight];
+    const toWorld = (uv, z) => {
+      const halfHeight = Math.tan(THREE.MathUtils.degToRad(24)) * (8-z);
+      return new THREE.Vector3((uv[0]*2-1)*halfHeight*camera.aspect,(1-uv[1]*2)*halfHeight,z);
+    };
+    const destination = toWorld(end,-3);
     haze.position.copy(destination);
     haze.position.z += .02;
+    // Five hand-shaped, broad S-curves follow the user's ribbon sketch.
+    // Controls are authored in viewport space, then placed at receding depths.
+    const paths = [
+      [[.18,-.25],[.55,.02],[-.18,.22],[.22,.28],[end[0]-.3,end[1]-.08]],
+      [[1.25,.1],[.85,.16],[.55,.35],[.86,.48],[end[0]+.12,end[1]-.04]],
+      [[-.25,.6],[.4,.1],[.38,.52],[.2,.62],[end[0]-.15,end[1]+.05]],
+      [[.04,1.25],[.72,.98],[-.15,.98],[.24,.85],[end[0]-.15,end[1]+.12]],
+      [[1.2,1.25],[.55,1.1],[1.2,.9],[.85,.8],[end[0]+.2,end[1]+.12]],
+    ];
     strips.forEach((strip,i) => {
-      const [x,y] = entries[i];
-      strip.curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(x*w,y*h,2),
-        new THREE.Vector3(x*w*.72 + destination.x*.15,y*h*.62 + destination.y*.15,.2),
-        new THREE.Vector3(destination.x*.85+x*w*.13,destination.y*.8+y*h*.16+.25,-1.8),
-        destination.clone().add(new THREE.Vector3(.035*Math.sin(i),.02*Math.cos(i),0)),
-      ]);
+      const [start,a,b,join,last] = paths[i];
+      const p0=toWorld(start,2), p1=toWorld(a,1.2), p2=toWorld(b,.4), p3=toWorld(join,-.5);
+      // Mirrored handles preserve a continuous tangent through the broad S bend.
+      const p4=p3.clone().add(p3.clone().sub(p2));
+      const path=new THREE.CurvePath();
+      path.add(new THREE.CubicBezierCurve3(p0,p1,p2,p3));
+      path.add(new THREE.CubicBezierCurve3(p3,p4,toWorld(last,-2.3),destination.clone()));
+      strip.curve=path;
     });
   };
   window.addEventListener('resize', resize);
@@ -112,7 +117,8 @@ export function createRibbons(getLandingPoint) {
   window.addEventListener('scroll', onScroll, { passive: true });
   resize();
   let active = true;
-  const p = new THREE.Vector3(), tangent = new THREE.Vector3();
+  const p = new THREE.Vector3();
+  const before = new THREE.Vector3(), after = new THREE.Vector3();
   return {
     reset() { active = true; canvas.hidden = false; hazeMaterial.uniforms.opacity.value = 0; dissipation.update(0); resize(); },
     update(elapsed, reduced) {
@@ -124,24 +130,29 @@ export function createRibbons(getLandingPoint) {
         return;
       }
       dissipation.update(elapsed);
-      hazeMaterial.uniforms.opacity.value = THREE.MathUtils.smoothstep(elapsed,1.6,3.7) * (1-THREE.MathUtils.smoothstep(elapsed,4.4,6.4)) * .48;
+      hazeMaterial.uniforms.opacity.value = THREE.MathUtils.smoothstep(elapsed,.8,2.3) * (1-THREE.MathUtils.smoothstep(elapsed,3.1,5.2)) * .48;
       strips.forEach(({ mesh, positions, curve }, i) => {
-        // Establish long luminous lines, then send the tail toward the vanishing point.
-        const tail = THREE.MathUtils.smoothstep(elapsed, 1.5 + i*.08, 4.8 + i*.08);
+        // The leading edge flies in quickly; a long trailing ribbon preserves the S silhouette.
+        const local = elapsed-i*.075;
+        const head = THREE.MathUtils.smoothstep(local,0,1.15);
+        const tail = THREE.MathUtils.smoothstep(local,1.1,3.6)*.72;
         mesh.material.uniforms.time.value = elapsed;
-        mesh.material.uniforms.dissolve.value = THREE.MathUtils.smoothstep(elapsed,2.9+i*.04,4.7+i*.04);
-        mesh.material.uniforms.opacity.value = THREE.MathUtils.smoothstep(elapsed, 0, .85) * (1 - THREE.MathUtils.smoothstep(elapsed, 3.8, 5.5));
+        mesh.material.uniforms.opacity.value = THREE.MathUtils.smoothstep(local, 0, .2) * (1 - THREE.MathUtils.smoothstep(local, 1.8, 4.0));
         for (let j = 0; j <= segments; j++) {
-          const t = tail + (1-tail) * j/segments;
+          const t = Math.min(head, tail) + Math.max(0, head-tail) * j/segments;
           curve.getPoint(t,p);
-          curve.getTangent(t,tangent);
-          const width = (1.55 * Math.pow(1-t, 1.8) + .022) * (.96 + .04*Math.sin(t*5+i));
-          const length = Math.hypot(tangent.x,tangent.y) || 1;
+          const width = (.48 * Math.pow(1-t, .85) + .055) * (.85 + .15*Math.cos(t*7+i*.9));
+          // A centered screen-space difference keeps the band normal smooth at every bend.
+          curve.getPoint(Math.max(0,t-.004),before);
+          curve.getPoint(Math.min(1,t+.004),after);
+          const tx=after.x/(8-after.z)-before.x/(8-before.z);
+          const ty=after.y/(8-after.z)-before.y/(8-before.z);
+          const length=Math.hypot(tx,ty) || 1;
           for (let side = 0; side < 2; side++) {
             const offset = (side ? 1 : -1)*width;
             const index = (j*2+side)*3;
-            positions[index] = p.x-tangent.y/length*offset;
-            positions[index+1] = p.y+tangent.x/length*offset;
+            positions[index] = p.x-ty/length*offset;
+            positions[index+1] = p.y+tx/length*offset;
             positions[index+2] = p.z;
           }
         }

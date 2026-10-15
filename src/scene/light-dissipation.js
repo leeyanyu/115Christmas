@@ -2,14 +2,14 @@ import * as THREE from 'three';
 
 // Small, deterministic motes inherit positions along each dissolving light band.
 export function createLightDissipation(scene, strips, pixelRatio) {
-  const count = 144;
+  const count = 80;
   const positions = new Float32Array(count * 3);
   const alphas = new Float32Array(count);
   const sizes = new Float32Array(count);
   const seeds = Array.from({ length: count }, (_, i) => {
     const random = n => { const v = Math.sin(i * 127.1 + n * 311.7) * 43758.5453; return v - Math.floor(v); };
     return { strip: i % strips.length, t: .42 + random(1) * .56,
-      birth: 2.9 + random(2) * 1.7, life: 1.5 + random(3) * 1.9,
+      birth: 2.0 + random(2) * 1.7, life: 1.5 + random(3) * 1.9,
       dx: (random(4) - .5) * .55, dy: .12 + random(5) * .35,
       dz: (random(6) - .5) * .3, size: 2 + random(7) * 4,
       phase: random(8) * Math.PI * 2 };
@@ -46,11 +46,11 @@ export function createLightDissipation(scene, strips, pixelRatio) {
   const origin = new THREE.Vector3();
   return {
     update(elapsed) {
-      points.visible = elapsed >= 2.9 && elapsed < 8;
+      points.visible = elapsed >= 2.0 && elapsed < 8;
       seeds.forEach((seed, i) => {
         const age = elapsed - seed.birth;
         const progress = THREE.MathUtils.clamp(age / seed.life, 0, 1);
-        alphas[i] = age < 0 ? 0 : Math.sin(Math.PI * progress) * .75;
+        alphas[i] = age < 0 ? 0 : Math.sin(Math.PI * progress) * .45;
         const curve = strips[seed.strip].curve;
         if (!curve) return;
         // Detach from the curve, drift gently, then fade without a final flash.
