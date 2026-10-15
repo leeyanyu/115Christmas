@@ -7,3 +7,9 @@
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 .reveal{z-index:3;bottom:100px;text-shadow:0 2px 14px #071323}.awakened .gesture{opacity:0}
 @media(max-width:700px){.reveal{top:calc(260px + clamp(340px,50svh,500px) - 48px);bottom:auto;font-size:12px}.reveal em{font-size:20px}}
+
+/* Opening light field spans the viewport, including the near-camera edges. */
+canvas.light-flow{position:fixed;inset:0;width:100vw;height:100svh;z-index:4;pointer-events:none;cursor:default;mix-blend-mode:screen}
+canvas.light-flow[hidden]{display:none}
+body:has(main:not(.awakened)) .invitation,body:has(main:not(.awakened)) .reveal{transition:opacity 1s}
+body:has(main:not(.awakened)) .invitation{opacity:.48}

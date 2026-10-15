@@ -34,7 +34,7 @@ export function createWorld(canvas, onComplete) {
   scene.add(contentRoot);
   const tree = createTree();
   contentRoot.add(tree.root);
-  const ribbons = createRibbons(scene, camera, new THREE.Vector3(0, 2, 0));
+  const ribbons = createRibbons();
   const awakening = createAwakening(tree, onComplete, ribbons);
   awakening.start(0);
   const positions = new Float32Array(55 * 3);
@@ -83,6 +83,7 @@ export function createWorld(canvas, onComplete) {
       observer.disconnect();
       window.removeEventListener('resize', resize);
       controls.dispose();
+      ribbons.dispose();
       const geometries = new Set(), materials = new Set();
       scene.traverse(object => {
         if (object.geometry) geometries.add(object.geometry);

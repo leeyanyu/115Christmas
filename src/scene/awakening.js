@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export const AWAKENING_DURATION = 8.5;
+export const AWAKENING_DURATION = 10.5;
 
 export function createAwakening(tree, onComplete, ribbons) {
   const count = 64;
@@ -29,15 +29,15 @@ export function createAwakening(tree, onComplete, ribbons) {
       if (startedAt === null) return;
       const elapsed = time - startedAt;
       ribbons.update(elapsed, reducedMotion);
-      const grown = (height) => THREE.MathUtils.clamp((elapsed - 2.2 - height / 4.1 * 3.2) / 1.5, 0, 1);
+      const grown = (height) => THREE.MathUtils.clamp((elapsed - 3.8 - height / 4.1 * 3.2) / 1.5, 0, 1);
       tree.layers.forEach(layer => {
         const t = grown(layer.position.y);
         const scale = reducedMotion ? Math.max(.001, t) : spring(t);
         layer.scale.set( scale, Math.max(.001, scale), scale );
       });
       tree.animated.forEach(item => item.scale.setScalar(reducedMotion ? Math.max(.001, grown(item.position.y)) : spring(grown(item.position.y))));
-      tree.trunk.scale.setScalar(Math.max(.001, Math.min(1, (elapsed - 2) / 2)));
-      tree.wire.visible = elapsed > 5.8;
+      tree.trunk.scale.setScalar(Math.max(.001, Math.min(1, (elapsed - 3.6) / 2)));
+      tree.wire.visible = elapsed > 7.4;
       const progress = Math.min(elapsed / AWAKENING_DURATION, 1);
       tree.bulbs.forEach((bulb, i) => {
         const lit = grown(bulb.position.y) > .55;
@@ -45,7 +45,7 @@ export function createAwakening(tree, onComplete, ribbons) {
         bulb.scale.setScalar(lit ? 1.15 : .001);
       });
       tree.starMaterial.emissiveIntensity = THREE.MathUtils.smoothstep(progress, .78, 1) * 2;
-      material.opacity = Math.max(0, Math.min(elapsed - 2.5, 1)) * (reducedMotion ? .25 : .8);
+      material.opacity = Math.max(0, Math.min(elapsed - 4.1, 1)) * (reducedMotion ? .25 : .8);
       for (let i = 0; i < count; i++) {
         const t = ((i / count + elapsed * .15) % 1);
         const angle = t * Math.PI * 10 + (reducedMotion ? 0 : time * .5);
