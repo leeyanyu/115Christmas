@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createLightDissipation } from './light-dissipation.js';
 
 // Full-viewport light field, independent of the tree canvas and its orbit camera.
 // A transverse shader provides a warm core and soft atmospheric glow
@@ -19,6 +20,7 @@ export function createRibbons(getLandingPoint) {
     uniform float time;
     uniform float opacity;
     uniform float seed;
+    uniform float dissolve;
     varying vec2 vUv;
     float gaussian(float x, float width) { return exp(-x*x/width); }
     void main() {
@@ -36,7 +38,9 @@ export function createRibbons(getLandingPoint) {
       vec3 amber = vec3(.65,.47,.26)*glow;
       vec3 light = amber + vec3(.95,.86,.65)*core + vec3(.72,.6,.42)*silk;
       float feather = 1.0-smoothstep(.55,1.0,abs(x));
-      gl_FragColor = vec4(light*feather*breath, endFade*opacity);
+      float grain = .2 + .6*(.5+.5*sin(s*131.0+seed)*sin(s*57.0-seed));
+      float remaining = 1.0-smoothstep(grain-.12,grain+.12,dissolve);
+      gl_FragColor = vec4(light*feather*breath, endFade*opacity*remaining);
     }`;
   for (let i = 0; i < 6; i++) {
     const positions = new Float32Array((segments + 1) * 6);
@@ -51,7 +55,7 @@ export function createRibbons(getLandingPoint) {
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     const material = new THREE.ShaderMaterial({
-      uniforms: { time: { value: 0 }, opacity: { value: 0 }, seed: { value: i * 2.17 } },
+      uniforms: { time: { value: 0 }, opacity: { value: 0 }, seed: { value: i * 2.17 }, dissolve: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
       fragmentShader, transparent: true, blending: THREE.AdditiveBlending,
       depthWrite: false, depthTest: false, side: THREE.DoubleSide,
@@ -61,6 +65,7 @@ export function createRibbons(getLandingPoint) {
     scene.add(mesh);
     strips.push({ mesh, positions, curve: null });
   }
+  const dissipation = createLightDissipation(scene, strips, renderer.getPixelRatio());
   const hazeMaterial = new THREE.ShaderMaterial({
     uniforms: { opacity: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
@@ -109,20 +114,22 @@ export function createRibbons(getLandingPoint) {
   let active = true;
   const p = new THREE.Vector3(), tangent = new THREE.Vector3();
   return {
-    reset() { active = true; canvas.hidden = false; hazeMaterial.uniforms.opacity.value = 0; resize(); },
+    reset() { active = true; canvas.hidden = false; hazeMaterial.uniforms.opacity.value = 0; dissipation.update(0); resize(); },
     update(elapsed, reduced) {
       if (!active) return;
-      if (reduced || elapsed > 6.4) {
+      if (reduced || elapsed > 8.2) {
         canvas.hidden = true;
         renderer.clear();
         active = false;
         return;
       }
+      dissipation.update(elapsed);
       hazeMaterial.uniforms.opacity.value = THREE.MathUtils.smoothstep(elapsed,1.6,3.7) * (1-THREE.MathUtils.smoothstep(elapsed,4.4,6.4)) * .48;
       strips.forEach(({ mesh, positions, curve }, i) => {
         // Establish long luminous lines, then send the tail toward the vanishing point.
         const tail = THREE.MathUtils.smoothstep(elapsed, 1.5 + i*.08, 4.8 + i*.08);
         mesh.material.uniforms.time.value = elapsed;
+        mesh.material.uniforms.dissolve.value = THREE.MathUtils.smoothstep(elapsed,2.9+i*.04,4.7+i*.04);
         mesh.material.uniforms.opacity.value = THREE.MathUtils.smoothstep(elapsed, 0, .85) * (1 - THREE.MathUtils.smoothstep(elapsed, 3.8, 5.5));
         for (let j = 0; j <= segments; j++) {
           const t = tail + (1-tail) * j/segments;
@@ -145,6 +152,7 @@ export function createRibbons(getLandingPoint) {
     dispose() {
       window.removeEventListener('resize',resize);
       window.removeEventListener('scroll',onScroll);
+      dissipation.dispose();
       haze.geometry.dispose();
       hazeMaterial.dispose();
       strips.forEach(({mesh})=>{mesh.geometry.dispose();mesh.material.dispose();});
