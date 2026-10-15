@@ -52,18 +52,36 @@ export function createWorld(canvas, onComplete, onStageStart) {
   awakening.start(0);
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const resize = () => {
+  let resizePending = true;
+  const drawingSize = new THREE.Vector2();
+  // Observers run after animation callbacks. Never resize/clear a WebGL buffer
+  // here: it could erase a frame that has already been drawn for presentation.
+  const requestResize = () => { resizePending = true; };
+  const syncRendererSize = () => {
+    if (!resizePending && !stage.isMoving) return;
     const { width, height } = canvas.parentElement.getBoundingClientRect();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-    renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    stage.resize();
+    if (width <= 0 || height <= 0) return;
+    // Allocate the final-size buffer once for the whole turn. CSS moves/scales
+    // its presentation while the camera follows the displayed aspect ratio.
+    const drawWidth = Math.round(stage.isMoving ? innerWidth : width);
+    const drawHeight = Math.round(stage.isMoving ? innerHeight : height);
+    const pixelRatio = Math.min(window.devicePixelRatio, 1.75);
+    renderer.getSize(drawingSize);
+    if (drawingSize.x !== drawWidth || drawingSize.y !== drawHeight || renderer.getPixelRatio() !== pixelRatio) {
+      renderer.setDrawingBufferSize(drawWidth, drawHeight, pixelRatio);
+    }
+    const aspect = width / height;
+    if (camera.aspect !== aspect) {
+      camera.aspect = aspect;
+      camera.updateProjectionMatrix();
+    }
+    if (resizePending) stage.resize();
+    resizePending = false;
   };
-  const observer = new ResizeObserver(resize);
+  const observer = new ResizeObserver(requestResize);
   observer.observe(canvas.parentElement);
-  window.addEventListener('resize', resize);
-  resize();
+  window.addEventListener('resize', requestResize);
+  syncRendererSize();
   let frame;
   let time = 0;
   let sequenceStart = 0;
@@ -78,15 +96,17 @@ export function createWorld(canvas, onComplete, onStageStart) {
     motes.update(time-sequenceStart, reducedMotion.matches);
     awakening.update(time, reducedMotion.matches);
     stage.update(time, reducedMotion.matches);
+    // Any buffer allocation must be followed by a render in the same frame.
+    syncRendererSize();
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
   return {
-    awaken: () => { stage.reset(); resize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener('resize', resize);
+      window.removeEventListener('resize', requestResize);
       controls.dispose();
       ribbons.dispose();
       const geometries = new Set(), materials = new Set();
