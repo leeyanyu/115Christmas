@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createRibbons } from './ribbons.js';
 import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
 import { createContentRoot } from '../integrations/content.js';
@@ -33,7 +34,9 @@ export function createWorld(canvas, onComplete) {
   scene.add(contentRoot);
   const tree = createTree();
   contentRoot.add(tree.root);
-  const awakening = createAwakening(tree, onComplete);
+  const ribbons = createRibbons(scene, camera, new THREE.Vector3(0, 2, 0));
+  const awakening = createAwakening(tree, onComplete, ribbons);
+  awakening.start(0);
   const positions = new Float32Array(55 * 3);
   let seed = 2026;
   const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -63,7 +66,7 @@ export function createWorld(canvas, onComplete) {
   let previous = performance.now();
   function animate(now) {
     frame = requestAnimationFrame(animate);
-    const delta = Math.min((now - previous) / 1000, .05);
+    const delta = Math.min((now - previous) / 1000, .25);
     previous = now;
     if (document.hidden) return;
     time += delta;

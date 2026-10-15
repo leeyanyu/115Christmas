@@ -11,15 +11,22 @@ try {
     reveal.classList.add('visible');
     document.querySelector('main').classList.add('awakened');
     reveal.setAttribute('aria-hidden', 'false');
-    label.textContent = '聖誕樹已點亮';
+    label.textContent = '再次喚醒聖誕樹';
+    button.disabled = false;
     status.textContent = 'Light Up Christmas 2026 · 12 月 18 日，與你相見';
   });
   button.addEventListener('click', () => {
+    reveal.classList.remove('visible');
+    reveal.setAttribute('aria-hidden', 'true');
+    document.querySelector('main').classList.remove('awakened');
     button.disabled = true;
     label.textContent = '星光正在甦醒';
     status.textContent = '讓光沿著枝葉，慢慢抵達星空…';
     world.awaken();
   });
+  button.disabled = true;
+  label.textContent = '星光正在匯聚';
+  status.textContent = '讓彩帶穿過冬夜，喚醒每一片枝葉…';
 } catch (error) {
   console.error('Unable to initialize the 3D invitation:', error);
   button.disabled = true;
