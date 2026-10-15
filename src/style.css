@@ -13,3 +13,23 @@ canvas.light-flow{position:fixed;inset:0;width:100vw;height:100svh;z-index:4;poi
 canvas.light-flow[hidden]{display:none}
 body:has(main:not(.awakened)) .invitation,body:has(main:not(.awakened)) .reveal{transition:opacity 1s}
 body:has(main:not(.awakened)) .invitation{opacity:.48}
+
+/* Center-stage finale. The canvas rectangle and camera animate together in JS. */
+.stage-active{height:100svh;min-height:100svh}
+.stage-active .invitation{opacity:1!important}
+.invitation > .eyebrow,.invitation > h1,.invitation > .intro,.invitation > .event{transition:opacity 1s,transform 1s}
+.stage-active .invitation > .eyebrow,.stage-active .invitation > h1,.stage-active .invitation > .intro,.stage-active .invitation > .event{opacity:0;transform:translateY(-18px);visibility:hidden}
+.stage-active .invitation button{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);margin:0;width:240px;min-height:44px;z-index:5}
+.stage-active .status{position:fixed;left:0;right:0;bottom:5px;margin:0;text-align:center;font-size:9px;letter-spacing:1px;pointer-events:none}
+.stage-active .reveal{position:fixed;left:0;right:0;top:auto;bottom:95px;width:100%;background:none;padding:0;font-size:14px}
+.stage-active .reveal em{font-size:26px;margin-top:4px}
+.stage-active footer{visibility:hidden}
+.stage-active .masthead{z-index:3;pointer-events:none}
+.stage-active .masthead a{pointer-events:auto}
+.stage-active #scene{z-index:1}
+.stage-active .gesture{display:none}
+@media(max-height:520px){.stage-active .reveal{left:3%;right:auto;bottom:105px;width:auto;text-align:left;font-size:11px}.stage-active .reveal em{font-size:19px}.stage-active .invitation button{left:auto;right:3%;bottom:28px;transform:none;width:210px}.stage-active .status{display:none}}
+.stage-active .invitation button{width:270px;gap:14px}
+.stage-active #button-label{white-space:nowrap;font-size:12px;letter-spacing:1px}
+@media(min-width:701px){.stage-active .reveal{left:6%;right:auto;bottom:120px;width:auto;text-align:left}}
+@media(max-height:520px){.stage-active .invitation button{width:230px;gap:8px;padding:0 14px}}

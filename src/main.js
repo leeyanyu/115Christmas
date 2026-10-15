@@ -13,12 +13,17 @@ try {
     reveal.setAttribute('aria-hidden', 'false');
     label.textContent = '再次喚醒聖誕樹';
     button.disabled = false;
-    status.textContent = 'Light Up Christmas 2026 · 12 月 18 日，與你相見';
+    status.textContent = 'Light Up Christmas 2026 · 拖曳聖誕樹，探索每一面星光';
+    document.querySelector('main').classList.add('stage-settled');
+  }, () => {
+    document.querySelector('main').classList.add('stage-active', 'awakened');
+    label.textContent = '聖誕樹正在登場';
+    status.textContent = '燈光已點亮，讓聖誕樹來到舞台中央…';
   });
   button.addEventListener('click', () => {
     reveal.classList.remove('visible');
     reveal.setAttribute('aria-hidden', 'true');
-    document.querySelector('main').classList.remove('awakened');
+    document.querySelector('main').classList.remove('awakened', 'stage-active', 'stage-settled');
     button.disabled = true;
     label.textContent = '星光正在甦醒';
     status.textContent = '讓光沿著枝葉，慢慢抵達星空…';

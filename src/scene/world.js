@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createRibbons } from './ribbons.js';
 import { createTreeMotes } from './tree-motes.js';
+import { createStage } from './stage.js';
 import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
 import { createContentRoot } from '../integrations/content.js';
 
-export function createWorld(canvas, onComplete) {
+export function createWorld(canvas, onComplete, onStageStart) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -46,7 +47,8 @@ export function createWorld(canvas, onComplete) {
     return { x: rect.left + (base.x + 1) * rect.width / 2,
       y: rect.top + (1 - base.y) * rect.height / 2 };
   });
-  const awakening = createAwakening(tree, onComplete, ribbons);
+  const stage = createStage(canvas, camera, controls, tree, onStageStart, onComplete);
+  const awakening = createAwakening(tree, () => stage.start(time), ribbons);
   awakening.start(0);
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -56,6 +58,7 @@ export function createWorld(canvas, onComplete) {
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    stage.resize();
   };
   const observer = new ResizeObserver(resize);
   observer.observe(canvas.parentElement);
@@ -74,11 +77,12 @@ export function createWorld(canvas, onComplete) {
     controls.update();
     motes.update(time-sequenceStart, reducedMotion.matches);
     awakening.update(time, reducedMotion.matches);
+    stage.update(time, reducedMotion.matches);
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
   return {
-    awaken: () => { sequenceStart = time; awakening.start(time); },
+    awaken: () => { stage.reset(); resize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
