@@ -8,6 +8,7 @@ import { createRotationAtmosphere } from './rotation-atmosphere.js';
 import { createRotationGlow } from './rotation-glow.js';
 import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
+import { createZoomOrbit } from './zoom-orbit.js';
 import { createContentRoot } from '../integrations/content.js';
 
 export function createWorld(canvas, onComplete, onStageStart) {
@@ -26,9 +27,13 @@ export function createWorld(canvas, onComplete, onStageStart) {
   controls.enableZoom = false;
   controls.zoomSpeed = .65;
   controls.rotateSpeed = .45;
+  // Two fingers can change distance and viewing angle in one continuous move.
+  // Desktop users get the same combined motion by dragging while scrolling.
+  controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
   controls.minPolarAngle = Math.PI * .3;
   controls.maxPolarAngle = Math.PI * .56;
   controls.listenToKeyEvents(canvas);
+  const zoomOrbit = createZoomOrbit({ canvas, camera, controls });
   scene.add(new THREE.HemisphereLight(0xc6e4ff, 0x182b25, 2));
   const key = new THREE.DirectionalLight(0xffe0a3, 3.5);
   key.position.set(4, 6, 5);
@@ -101,6 +106,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     time += delta;
     rotationGlow.beforeUpdate(delta, stage.isSettled, reducedMotion.matches);
     controls.update(delta);
+    zoomOrbit.update(delta, reducedMotion.matches, stage.isSettled);
     motes.update(time-sequenceStart, reducedMotion.matches);
     awakening.update(time, reducedMotion.matches);
     stage.update(time, reducedMotion.matches);
@@ -112,7 +118,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
   }
   frame = requestAnimationFrame(animate);
   return {
-    awaken: () => { rotationGlow.reset(); interaction.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { rotationGlow.reset(); interaction.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -120,6 +126,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
       rotationGlow.dispose();
       atmosphere.dispose();
       interaction.dispose();
+      zoomOrbit.dispose();
       controls.dispose();
       ribbons.dispose();
       const geometries = new Set(), materials = new Set();

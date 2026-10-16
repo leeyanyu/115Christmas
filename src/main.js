@@ -1,10 +1,16 @@
 import './style.css';
 import { createWorld } from './scene/world.js';
+import { createFullscreenControl } from './integrations/fullscreen.js';
 
 const button = document.querySelector('#awaken');
 const label = document.querySelector('#button-label');
 const status = document.querySelector('#status');
 const reveal = document.querySelector('#reveal');
+const fullscreenControl = createFullscreenControl(
+  document.querySelector('#fullscreen'),
+  document.querySelector('main'),
+  message => { status.textContent = message; },
+);
 let world;
 try {
   world = createWorld(document.querySelector('#tree-canvas'), () => {
@@ -13,8 +19,9 @@ try {
     reveal.setAttribute('aria-hidden', 'false');
     label.textContent = '再次喚醒聖誕樹';
     button.disabled = false;
-    status.textContent = '雙指／滾輪縮放 · 快速旋轉或連點樹頂星星找驚喜';
+    status.textContent = '雙指旋轉縮放／拖曳＋滾輪 · 快速旋轉或連點樹頂星星找驚喜';
     document.querySelector('main').classList.add('stage-settled');
+    fullscreenControl.show();
   }, () => {
     document.querySelector('main').classList.add('stage-active', 'awakened');
     label.textContent = '聖誕樹正在登場';
@@ -38,4 +45,4 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => world?.dispose());
+if (import.meta.hot) import.meta.hot.dispose(() => { fullscreenControl.dispose(); world?.dispose(); });
