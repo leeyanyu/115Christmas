@@ -14,29 +14,31 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
   warmLight.name = 'gratitude-warm-light';
   warmLight.position.set(0, 2.8, 2);
   tree.root.add(warmLight);
+  const lampGold = new THREE.Color(0xffcf7a);
   const material = new THREE.ShaderMaterial({
-    uniforms: { progress: { value: 0 }, bloom: { value: 0 }, strength: { value: 0 }, pixelRatio: { value: 1 } },
+    uniforms: { progress: { value: 0 }, bloom: { value: 0 }, strength: { value: 0 }, pixelRatio: { value: 1 }, tint: { value: new THREE.Color(0xf1c47c) } },
     vertexShader: `
       uniform float progress, bloom, strength, pixelRatio;
       varying float light;
       void main() {
         float height=(position.y-.7)/3.05;
         float star=step(3.9,position.y);
-        light=mix(smoothstep(height-.07,height+.07,progress)*strength*(1.0+bloom*1.6),bloom*2.0,star);
+        light=mix(smoothstep(height-.07,height+.07,progress)*strength*(1.0+bloom*.9),bloom*1.5,star);
         vec4 p=modelViewMatrix*vec4(position,1.0);
         gl_Position=projectionMatrix*p;
-        gl_PointSize=clamp((145.0+bloom*240.0+star*bloom*260.0)*pixelRatio/max(1.0,-p.z),3.0,100.0);
+        gl_PointSize=clamp((145.0+bloom*300.0+star*bloom*260.0)*pixelRatio/max(1.0,-p.z),3.0,100.0);
       }`,
     fragmentShader: `
       varying float light;
+      uniform vec3 tint;
       void main() {
         float r=length(gl_PointCoord-.5)*2.0;
-        float a=exp(-r*r*4.0)*(1.0-smoothstep(.65,1.0,r));
-        gl_FragColor=vec4(1.0,.77,.39,a*light*.8);
+        float a=exp(-r*r*5.0)*(1.0-smoothstep(.45,1.0,r));
+        gl_FragColor=vec4(tint,min(.8,a*light*.45));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false, blending: THREE.NormalBlending,
   });
   const halo = new THREE.Points(geometry, material);
   halo.name = 'gratitude-light'; halo.frustumCulled = false; halo.visible = false;
@@ -74,16 +76,17 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
       material.uniforms.strength.value = (strength + voiceLevel * .35) * amplitude;
       material.uniforms.pixelRatio.value = pixelRatio;
       halo.visible = strength > .001;
-      warmLight.intensity = bloom * amplitude * 5;
-      foliage.forEach(item => { item.emissiveIntensity += bloom * amplitude * .55; });
+      warmLight.intensity = bloom * amplitude * 3.8;
+      foliage.forEach(item => { item.emissiveIntensity += bloom * amplitude * .3; });
       // Awakening and rotation feedback restore their base values each frame.
       tree.bulbs.forEach(bulb => {
         const height = (bulb.position.y - .7) / 3.05;
         const lit = THREE.MathUtils.smoothstep(progress, height - .07, height + .07) * strength * amplitude;
-        bulb.material.color.multiplyScalar(1 + lit * .4 + bloom * amplitude * 1.0 + voiceLevel * amplitude * .5);
-        if (bulb.scale.x > 1) bulb.scale.multiplyScalar(1 + bloom * amplitude * .35);
+        bulb.material.color.lerp(lampGold, bloom * amplitude * .65);
+        bulb.material.color.multiplyScalar(1 + lit * .18 + bloom * amplitude * .22 + voiceLevel * amplitude * .22);
+        if (bulb.scale.x > 1) bulb.scale.multiplyScalar(1 + bloom * amplitude * .18);
       });
-      tree.starMaterial.emissiveIntensity += bloom * amplitude * 2.4;
+      tree.starMaterial.emissiveIntensity += bloom * amplitude * .9;
     },
     reset() {
       energy = 0; progress = 0; phase = 'collecting'; elapsed = 0; clock = 0; lastTouch = -Infinity; voiceLevel = 0;
