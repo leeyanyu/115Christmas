@@ -108,7 +108,7 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
         }
       } else emission = 0;
       particles.update(delta, pixelRatio);
-      rewards.update(delta, pixelRatio);
+      rewards.update(delta, pixelRatio, camera.position.distanceTo(controls.target));
     },
     reset() { cancel(); previousAngle = tree.root.rotation.y - controls.getAzimuthalAngle(); particles.reset(); triggers.reset(); rewards.reset(); },
     dispose() {

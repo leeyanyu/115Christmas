@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createPedestalSignature } from './pedestal-signature.js';
 
 // Local coordinates keep this content independent of the camera / future AR anchor.
 export function createTree() {
@@ -78,5 +79,6 @@ export function createTree() {
   rim.rotation.x = Math.PI / 2;
   rim.position.y = .08;
   root.add(rim);
+  root.add(createPedestalSignature());
   return { root, bulbs, starMaterial, layers, animated, trunk, wire };
 }

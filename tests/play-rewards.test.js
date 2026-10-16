@@ -53,3 +53,18 @@ test('manual pointer distance earns a reward even when damping cancels net rotat
   }
   assert.equal(stars, 1);
 });
+
+test('snow and stars retain varied size and opacity at the same age', () => {
+  const scene = new THREE.Scene(), r = createPlayRewards(scene, 96);
+  const p = scene.getObjectByName('christmas-surprises');
+  r.stars(new THREE.Vector3(0, 4, 0), false);
+  r.snow(false); r.update(.2, 1, 15);
+  const sizes = p.geometry.attributes.size.array, alpha = p.geometry.attributes.alpha.array;
+  for (const [start, end] of [[0, 32], [32, 96]]) {
+    const subset = sizes.slice(start, end), opacity = alpha.slice(start, end);
+    assert.ok(Math.max(...subset) > Math.min(...subset) * 2);
+    assert.ok(Math.max(...opacity) > Math.min(...opacity) * 1.5);
+  }
+  assert.equal(p.material.uniforms.focusDistance.value, 15);
+  r.dispose();
+});
