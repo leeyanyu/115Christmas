@@ -6,6 +6,10 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
   const geometry = new THREE.BufferGeometry().setFromPoints([
     ...tree.bulbs.map(b => b.position), tree.animated.at(-1).position,
   ]);
+  // Interleave warm ivory accents without changing overall exposure or timing.
+  const ivory = Float32Array.from({ length: tree.bulbs.length + 1 }, (_, i) =>
+    i < tree.bulbs.length && (i % 5 === 1 || i % 5 === 4) ? 1 : 0);
+  geometry.setAttribute('ivory', new THREE.BufferAttribute(ivory, 1));
   const foliage = new Set();
   tree.layers.forEach(layer => layer.traverse(object => {
     if (object.material?.emissive) foliage.add(object.material);
@@ -15,12 +19,16 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
   warmLight.position.set(0, 2.8, 2);
   tree.root.add(warmLight);
   const lampGold = new THREE.Color(0xffcf7a);
+  const lampIvory = new THREE.Color(0xfff1d7);
   const material = new THREE.ShaderMaterial({
-    uniforms: { progress: { value: 0 }, bloom: { value: 0 }, strength: { value: 0 }, pixelRatio: { value: 1 }, tint: { value: new THREE.Color(0xf1c47c) } },
+    uniforms: { progress: { value: 0 }, bloom: { value: 0 }, strength: { value: 0 }, pixelRatio: { value: 1 }, tint: { value: new THREE.Color(0xf1c47c) }, ivoryTint: { value: lampIvory } },
     vertexShader: `
       uniform float progress, bloom, strength, pixelRatio;
+      attribute float ivory;
+      varying float ivoryAmount;
       varying float light;
       void main() {
+        ivoryAmount=ivory;
         float height=(position.y-.7)/3.05;
         float star=step(3.9,position.y);
         light=mix(smoothstep(height-.07,height+.07,progress)*strength*(1.0+bloom*.9),bloom*1.5,star);
@@ -30,11 +38,12 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
       }`,
     fragmentShader: `
       varying float light;
-      uniform vec3 tint;
+      varying float ivoryAmount;
+      uniform vec3 tint, ivoryTint;
       void main() {
         float r=length(gl_PointCoord-.5)*2.0;
         float a=exp(-r*r*5.0)*(1.0-smoothstep(.45,1.0,r));
-        gl_FragColor=vec4(tint,min(.8,a*light*.45));
+        gl_FragColor=vec4(mix(tint,ivoryTint,ivoryAmount),min(.8,a*light*.45));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
@@ -79,10 +88,10 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
       warmLight.intensity = bloom * amplitude * 3.8;
       foliage.forEach(item => { item.emissiveIntensity += bloom * amplitude * .3; });
       // Awakening and rotation feedback restore their base values each frame.
-      tree.bulbs.forEach(bulb => {
+      tree.bulbs.forEach((bulb, i) => {
         const height = (bulb.position.y - .7) / 3.05;
         const lit = THREE.MathUtils.smoothstep(progress, height - .07, height + .07) * strength * amplitude;
-        bulb.material.color.lerp(lampGold, bloom * amplitude * .65);
+        bulb.material.color.lerp(ivory[i] ? lampIvory : lampGold, bloom * amplitude * .65);
         bulb.material.color.multiplyScalar(1 + lit * .18 + bloom * amplitude * .22 + voiceLevel * amplitude * .22);
         if (bulb.scale.x > 1) bulb.scale.multiplyScalar(1 + bloom * amplitude * .18);
       });
