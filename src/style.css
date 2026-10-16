@@ -33,3 +33,8 @@ body:has(main:not(.awakened)) .invitation{opacity:.48}
 .stage-active #button-label{white-space:nowrap;font-size:12px;letter-spacing:1px}
 @media(min-width:701px){.stage-active .reveal{left:6%;right:auto;bottom:120px;width:auto;text-align:left}}
 @media(max-height:520px){.stage-active .invitation button{width:230px;gap:8px;padding:0 14px}}
+
+/* Rotation draws the background into a deeper navy gradient behind the tree. */
+main::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 69% 48%,#040c1726 0%,#030b1ac2 70%,#020914e6 100%);opacity:var(--rotation-dim,0)}
+#scene{z-index:1}
+.stage-active::before{background:radial-gradient(ellipse at 50% 44%,#040c1726 0%,#030b1ac2 70%,#020914e6 100%)}

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { palette } from './starlight-style.js';
 
 // Rotation feedback is independent of gesture particles and opening choreography.
-export function createRotationGlow({ tree, controls, canvas, activityTarget = window, visibilityTarget = document }) {
+export function createRotationGlow({ tree, controls, canvas, onGlow = () => {}, activityTarget = window, visibilityTarget = document }) {
   const materials = new Set();
   const foliage = new Set();
   tree.layers.forEach(layer => layer.traverse(object => {
@@ -81,6 +81,7 @@ export function createRotationGlow({ tree, controls, canvas, activityTarget = wi
       const target = turn > .00001 ? 1 : 0;
       glow = THREE.MathUtils.damp(glow, target, target ? 8 : 3, delta);
       const strength = glow * (reducedMotion ? .4 : 1);
+      onGlow(strength);
       materials.forEach(item => { item.emissiveIntensity = strength * (foliage.has(item) ? .22 : .12); });
       // Awakening writes its base light each frame; add feedback after that update.
       tree.starMaterial.emissiveIntensity += strength * .35;
@@ -93,12 +94,13 @@ export function createRotationGlow({ tree, controls, canvas, activityTarget = wi
       halo.visible = strength > .005 && tree.animated.at(-1).scale.x > .99;
     },
     reset() {
-      activity(); held = false; glow = 0; halo.visible = false;
+      activity(); held = false; glow = 0; halo.visible = false; onGlow(0);
       materials.forEach(item => { item.emissiveIntensity = 0; });
       rotation = tree.root.rotation.y;
       azimuth = controls.getAzimuthalAngle(); polar = controls.getPolarAngle();
     },
     dispose() {
+      onGlow(0);
       controls.autoRotate = false;
       canvas?.removeEventListener('pointerdown', start);
       activityTarget.removeEventListener('pointerup', end);

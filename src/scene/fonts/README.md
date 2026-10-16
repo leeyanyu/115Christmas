@@ -1,0 +1,1 @@
+GJ Signature contains the G, J and space glyphs from Optimer Regular bundled with three@0.180.0 (`examples/fonts/optimer_regular.typeface.json`). Outlines and original font metadata are retained; the subset family is named GJ Signature. See LICENSE.txt for the original MAGENTA license, also retained in the JSON metadata. No runtime font download is required.

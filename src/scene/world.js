@@ -4,6 +4,7 @@ import { createRibbons } from './ribbons.js';
 import { createTreeMotes } from './tree-motes.js';
 import { createStage } from './stage.js';
 import { createTreeInteraction } from './tree-interaction.js';
+import { createRotationAtmosphere } from './rotation-atmosphere.js';
 import { createRotationGlow } from './rotation-glow.js';
 import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
@@ -55,7 +56,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving, onReward: message => { document.querySelector('#status').textContent = message; } });
-  const rotationGlow = createRotationGlow({ tree, controls, canvas });
+  const atmosphere = createRotationAtmosphere(canvas);
+  const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: atmosphere.update });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
   // Observers run after animation callbacks. Never resize/clear a WebGL buffer
@@ -115,6 +117,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
       observer.disconnect();
       window.removeEventListener('resize', requestResize);
       rotationGlow.dispose();
+      atmosphere.dispose();
       interaction.dispose();
       controls.dispose();
       ribbons.dispose();
