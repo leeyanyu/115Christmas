@@ -1,13 +1,27 @@
 import * as THREE from 'three';
+import { createPlayTriggers } from './play-triggers.js';
+import { createPlayRewards } from './play-rewards.js';
 import { createInteractionParticles } from './interaction-particles.js';
 
-export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked }) {
+export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked, onReward = () => {} }) {
   const constrained = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 8) <= 4;
   const particles = createInteractionParticles(scene, constrained ? 48 : 96);
+  const rewards = createPlayRewards(scene, constrained ? 96 : 192);
+  const star = tree.animated.at(-1);
+  const starPoint = new THREE.Vector3();
+  const triggers = createPlayTriggers(() => {
+    star.updateWorldMatrix(true, false); star.getWorldPosition(starPoint);
+    rewards.stars(starPoint, reducedMotion.matches, lowQuality);
+    onReward('星光被你喚醒了！再試試連點樹頂星星三下 ✧');
+  }, () => {
+    rewards.snow(reducedMotion.matches, lowQuality);
+    onReward('下雪了！願這場冬夜的驚喜，陪你度過聖誕 ✧');
+  });
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2(), origin = new THREE.Vector3();
   const targets = [...tree.layers, ...tree.animated, tree.trunk, ...tree.bulbs];
   const hits = [];
+  const starSphere = new THREE.Sphere(), starHit = new THREE.Vector3(), starScale = new THREE.Vector3();
   const pointers = new Set();
   let gesture = null, previousAngle = tree.root.rotation.y - controls.getAzimuthalAngle(), emission = 0;
   let slowFrames = 0, lowQuality = constrained;
@@ -18,20 +32,34 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
     pointer.set((x - rect.left) / rect.width * 2 - 1, 1 - (y - rect.top) / rect.height * 2);
     camera.updateMatrixWorld(); tree.root.updateWorldMatrix(true, true);
     raycaster.setFromCamera(pointer, camera);
+    // A small spherical touch target also works when the thin star is edge-on.
+    star.getWorldPosition(starSphere.center); star.getWorldScale(starScale);
+    starSphere.radius = .34 * Math.max(starScale.x, starScale.y, starScale.z);
+    if (starScale.x > .9 && raycaster.ray.intersectSphere(starSphere, starHit)) {
+      return { point: starHit, object: star };
+    }
     hits.length = 0;
     raycaster.intersectObjects(targets, true, hits);
-    return hits[0]?.point;
+    return hits[0];
   }
   function down(event) {
     pointers.add(event.pointerId);
     if (pointers.size > 1) { gesture = null; return; }
     if (event.button !== 0 || blocked() || !event.isPrimary) return;
     const point = hit(event.clientX, event.clientY);
-    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, start: performance.now(), dragged: false, height: point?.y ?? 2 };
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, start: performance.now(), dragged: false, lastX: event.clientX, lastTime: performance.now(), height: point?.point.y ?? 2 };
   }
   function move(event) {
     if (!gesture || event.pointerId !== gesture.id) return;
     if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 7) gesture.dragged = true;
+    const now = performance.now();
+    const dx = event.clientX - gesture.lastX;
+    // Measure the deliberate drag before damping cancels fast direction changes.
+    if (gesture.dragged && !blocked() && Math.abs(event.clientX - gesture.x) > Math.abs(event.clientY - gesture.y)) {
+      const turn = dx / Math.max(300, canvas.getBoundingClientRect().height) * Math.PI * 2 * controls.rotateSpeed;
+      triggers.spin(turn, Math.max(.016, (now - gesture.lastTime) / 1000));
+    }
+    gesture.lastX = event.clientX; gesture.lastTime = now;
   }
   function up(event) {
     pointers.delete(event.pointerId);
@@ -39,18 +67,21 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
     move(event);
     if (!gesture.dragged && performance.now() - gesture.start < 650 && !blocked()) {
       const point = hit(event.clientX, event.clientY);
-      if (point) particles.burst(point, reducedMotion.matches, lowQuality);
+      if (point) {
+        particles.burst(point.point, reducedMotion.matches, lowQuality);
+        if (point.object === star) triggers.tapStar();
+      }
     }
     gesture = null; emission = 0;
   }
-  function cancel() { gesture = null; pointers.clear(); emission = 0; }
+  function cancel() { gesture = null; pointers.clear(); emission = 0; triggers.cancelGesture(); }
   canvas.addEventListener('pointerdown', down);
   window.addEventListener('pointermove', move, { passive: true });
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', cancel);
   window.addEventListener('blur', cancel);
   document.addEventListener('visibilitychange', cancel);
-  const motionChanged = () => { cancel(); particles.reset(); };
+  const motionChanged = () => { cancel(); particles.reset(); triggers.reset(); rewards.reset(); };
   reducedMotion.addEventListener('change', motionChanged);
   return {
     update(delta, pixelRatio) {
@@ -58,6 +89,7 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
       const angle = tree.root.rotation.y - controls.getAzimuthalAngle();
       const change = Math.atan2(Math.sin(angle - previousAngle), Math.cos(angle - previousAngle));
       previousAngle = angle;
+      triggers.update(delta);
       // Sustained slow rendering reduces emission; a single resize stall does not.
       slowFrames = delta > .04 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
       if (slowFrames > 30) lowQuality = true;
@@ -76,8 +108,9 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
         }
       } else emission = 0;
       particles.update(delta, pixelRatio);
+      rewards.update(delta, pixelRatio);
     },
-    reset() { cancel(); previousAngle = tree.root.rotation.y - controls.getAzimuthalAngle(); particles.reset(); },
+    reset() { cancel(); previousAngle = tree.root.rotation.y - controls.getAzimuthalAngle(); particles.reset(); triggers.reset(); rewards.reset(); },
     dispose() {
       canvas.removeEventListener('pointerdown', down);
       window.removeEventListener('pointermove', move);
@@ -86,6 +119,7 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
       window.removeEventListener('blur', cancel);
       document.removeEventListener('visibilitychange', cancel);
       reducedMotion.removeEventListener('change', motionChanged);
+      rewards.dispose();
       particles.dispose();
     },
   };

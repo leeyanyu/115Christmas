@@ -54,7 +54,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
   awakening.start(0);
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving });
+  const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving, onReward: message => { document.querySelector('#status').textContent = message; } });
   const rotationGlow = createRotationGlow({ tree, controls, canvas });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
