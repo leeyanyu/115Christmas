@@ -13,6 +13,7 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
   let startPosition;
   let startTarget;
   let initialRotation;
+  let referenceDistance = null;
   const finalTarget = new THREE.Vector3(0, 2.05, 0);
   const direction = new THREE.Vector3();
 
@@ -20,6 +21,12 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
     const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     // Leave room for the header, greeting and replay button in every orientation.
     return Math.max(2.3 / (tangent * .68), 1.95 / (tangent * aspect * .85));
+  }
+
+  function setZoomRange(distance) {
+    controls.minDistance = Math.max(3.8, distance * .42);
+    controls.maxDistance = distance * 1.15;
+    referenceDistance = distance;
   }
 
   return {
@@ -61,6 +68,8 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
       controls.update();
       if (progress === 1) {
         state = 'settled';
+        setZoomRange(distance);
+        controls.enableZoom = true;
         container.style.width = '100vw';
         container.style.height = '100svh';
         controls.enabled = true;
@@ -70,12 +79,18 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
     },
     resize() {
       if (state !== 'settled') return;
+      const ratio = referenceDistance ? camera.position.distanceTo(controls.target) / referenceDistance : 1;
       direction.copy(camera.position).sub(controls.target).normalize();
-      camera.position.copy(controls.target).addScaledVector(direction, fittedDistance(camera.aspect));
+      setZoomRange(fittedDistance(camera.aspect));
+      const distance = THREE.MathUtils.clamp(referenceDistance * ratio, controls.minDistance, controls.maxDistance);
+      camera.position.copy(controls.target).addScaledVector(direction, distance);
       controls.update();
     },
     reset() {
       state = 'idle';
+      referenceDistance = null;
+      controls.minDistance = 0; controls.maxDistance = Infinity;
+      controls.enableZoom = false;
       container.removeAttribute('style');
       tree.root.rotation.y = 0;
       controls.enableDamping = false;

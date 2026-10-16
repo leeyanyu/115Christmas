@@ -44,7 +44,7 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
   }
   function down(event) {
     pointers.add(event.pointerId);
-    if (pointers.size > 1) { gesture = null; return; }
+    if (pointers.size > 1) { gesture = null; triggers.cancelGesture(); return; }
     if (event.button !== 0 || blocked() || !event.isPrimary) return;
     const point = hit(event.clientX, event.clientY);
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, start: performance.now(), dragged: false, lastX: event.clientX, lastTime: performance.now(), height: point?.point.y ?? 2 };

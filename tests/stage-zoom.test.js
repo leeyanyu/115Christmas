@@ -1,0 +1,29 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import { createStage } from '../src/scene/stage.js';
+
+test('zoom starts after the opening; limits, resize ratio and replay preserve framing', () => {
+  globalThis.innerWidth = 1100; globalThis.innerHeight = 800;
+  const camera = new THREE.PerspectiveCamera(37, 1100 / 800, .1, 60);
+  camera.position.set(6, 3.4, 8);
+  const controls = { target: new THREE.Vector3(0, 2, 0), enableZoom: false, update() {} };
+  const container = { style: {}, getBoundingClientRect: () => ({ left: 400, top: 110, width: 700, height: 625 }), removeAttribute() { this.style = {}; } };
+  const stage = createStage({ parentElement: container }, camera, controls, { root: new THREE.Group() }, () => {}, () => {});
+  stage.start(0); assert.equal(controls.enabled, false); assert.equal(controls.enableZoom, false);
+  stage.update(4.2, false); assert.equal(controls.enabled, true); assert.equal(controls.enableZoom, true);
+  const original = camera.position.distanceTo(controls.target);
+  assert.ok(controls.minDistance >= 3.8); assert.ok(controls.minDistance < original); assert.ok(controls.maxDistance > original);
+  const direction = camera.position.clone().sub(controls.target).normalize();
+  camera.position.copy(controls.target).addScaledVector(direction, original * .6);
+  globalThis.innerWidth = 390; globalThis.innerHeight = 844; camera.aspect = 390 / 844;
+  stage.resize();
+  assert.ok(Math.abs(camera.position.distanceTo(controls.target) / (controls.maxDistance / 1.15) - .6) < 1e-8);
+  camera.position.copy(controls.target).addScaledVector(direction, .1); stage.resize();
+  assert.ok(Math.abs(camera.position.distanceTo(controls.target) - controls.minDistance) < 1e-8);
+  stage.reset(); assert.equal(controls.enableZoom, false); assert.equal(controls.maxDistance, Infinity);
+  assert.deepEqual(camera.position.toArray(), [6, 3.4, 8]);
+  stage.start(10); stage.update(14.21, false); assert.equal(controls.enableZoom, true);
+  assert.ok(Math.abs(camera.position.distanceTo(controls.target) / (controls.maxDistance / 1.15) - 1) < 1e-8);
+  delete globalThis.innerWidth; delete globalThis.innerHeight;
+});

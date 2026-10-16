@@ -24,6 +24,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
   controls.dampingFactor = .06;
   controls.enablePan = false;
   controls.enableZoom = false;
+  controls.zoomSpeed = .65;
   controls.rotateSpeed = .45;
   controls.minPolarAngle = Math.PI * .3;
   controls.maxPolarAngle = Math.PI * .56;
