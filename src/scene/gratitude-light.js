@@ -3,7 +3,17 @@ import * as THREE from 'three';
 // Energy is independent of its input source, so a future local audio analyser
 // can contribute through addEnergy without owning materials or the camera.
 export function createGratitudeLight({ tree, onChange = () => {} }) {
-  const geometry = new THREE.BufferGeometry().setFromPoints(tree.bulbs.map(b => b.position));
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    ...tree.bulbs.map(b => b.position), tree.animated.at(-1).position,
+  ]);
+  const foliage = new Set();
+  tree.layers.forEach(layer => layer.traverse(object => {
+    if (object.material?.emissive) foliage.add(object.material);
+  }));
+  const warmLight = new THREE.PointLight(0xffd89a, 0, 9, 2);
+  warmLight.name = 'gratitude-warm-light';
+  warmLight.position.set(0, 2.8, 2);
+  tree.root.add(warmLight);
   const material = new THREE.ShaderMaterial({
     uniforms: { progress: { value: 0 }, bloom: { value: 0 }, strength: { value: 0 }, pixelRatio: { value: 1 } },
     vertexShader: `
@@ -11,10 +21,11 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
       varying float light;
       void main() {
         float height=(position.y-.7)/3.05;
-        light=smoothstep(height-.07,height+.07,progress)*strength;
+        float star=step(3.9,position.y);
+        light=mix(smoothstep(height-.07,height+.07,progress)*strength*(1.0+bloom*1.6),bloom*2.0,star);
         vec4 p=modelViewMatrix*vec4(position,1.0);
         gl_Position=projectionMatrix*p;
-        gl_PointSize=clamp((145.0+bloom*65.0)*pixelRatio/max(1.0,-p.z),3.0,44.0);
+        gl_PointSize=clamp((145.0+bloom*240.0+star*bloom*260.0)*pixelRatio/max(1.0,-p.z),3.0,100.0);
       }`,
     fragmentShader: `
       varying float light;
@@ -60,18 +71,22 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
       material.uniforms.strength.value = strength * amplitude;
       material.uniforms.pixelRatio.value = pixelRatio;
       halo.visible = strength > .001;
+      warmLight.intensity = bloom * amplitude * 5;
+      foliage.forEach(item => { item.emissiveIntensity += bloom * amplitude * .55; });
       // Awakening and rotation feedback restore their base values each frame.
       tree.bulbs.forEach(bulb => {
         const height = (bulb.position.y - .7) / 3.05;
         const lit = THREE.MathUtils.smoothstep(progress, height - .07, height + .07) * strength * amplitude;
-        bulb.material.color.multiplyScalar(1 + lit * .4 + bloom * amplitude * .15);
+        bulb.material.color.multiplyScalar(1 + lit * .4 + bloom * amplitude * 1.0);
+        if (bulb.scale.x > 1) bulb.scale.multiplyScalar(1 + bloom * amplitude * .35);
       });
-      tree.starMaterial.emissiveIntensity += bloom * amplitude * .8;
+      tree.starMaterial.emissiveIntensity += bloom * amplitude * 2.4;
     },
     reset() {
       energy = 0; progress = 0; phase = 'collecting'; elapsed = 0; clock = 0; lastTouch = -Infinity;
       halo.visible = false; material.uniforms.strength.value = 0; notify();
+      warmLight.intensity = 0;
     },
-    dispose() { tree.root.remove(halo); geometry.dispose(); material.dispose(); },
+    dispose() { tree.root.remove(halo, warmLight); geometry.dispose(); material.dispose(); },
   };
 }
