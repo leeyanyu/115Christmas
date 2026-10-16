@@ -3,7 +3,7 @@ import { createPlayTriggers } from './play-triggers.js';
 import { createPlayRewards } from './play-rewards.js';
 import { createInteractionParticles } from './interaction-particles.js';
 
-export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked, onReward = () => {} }) {
+export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked, onReward = () => {}, onTreeTouch = () => {} }) {
   const constrained = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 8) <= 4;
   const particles = createInteractionParticles(scene, constrained ? 48 : 96);
   const rewards = createPlayRewards(scene, constrained ? 96 : 192);
@@ -69,6 +69,7 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
       const point = hit(event.clientX, event.clientY);
       if (point) {
         particles.burst(point.point, reducedMotion.matches, lowQuality);
+        onTreeTouch();
         if (point.object === star) triggers.tapStar();
       }
     }

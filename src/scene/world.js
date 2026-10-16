@@ -9,6 +9,7 @@ import { createRotationGlow } from './rotation-glow.js';
 import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
 import { createZoomOrbit } from './zoom-orbit.js';
+import { createGratitudeLight } from './gratitude-light.js';
 import { createContentRoot } from '../integrations/content.js';
 
 export function createWorld(canvas, onComplete, onStageStart) {
@@ -61,7 +62,16 @@ export function createWorld(canvas, onComplete, onStageStart) {
   awakening.start(0);
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving, onReward: message => { document.querySelector('#status').textContent = message; } });
+  const gratitudeLabel = document.querySelector('#gratitude');
+  const gratitude = createGratitudeLight({ tree, onChange: ({ phase, count, total }) => {
+    gratitudeLabel.textContent = phase === 'blooming'
+      ? '每一份感恩，都讓冬夜更明亮。謝謝你 ✧'
+      : count ? `感恩的光 ${count} / ${total} · 再輕觸，讓祝福抵達星星`
+        : '輕觸聖誕樹，讓每一份感恩慢慢發光';
+  } });
+  const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
+    onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
+    onReward: message => { document.querySelector('#status').textContent = message; } });
   const atmosphere = createRotationAtmosphere(canvas);
   const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: atmosphere.update });
   let resizePending = true;
@@ -114,11 +124,12 @@ export function createWorld(canvas, onComplete, onStageStart) {
     syncRendererSize();
     interaction.update(delta, renderer.getPixelRatio());
     rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
+    if (stage.isSettled) gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
   return {
-    awaken: () => { rotationGlow.reset(); interaction.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -126,6 +137,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
       rotationGlow.dispose();
       atmosphere.dispose();
       interaction.dispose();
+      gratitude.dispose();
       zoomOrbit.dispose();
       controls.dispose();
       ribbons.dispose();
