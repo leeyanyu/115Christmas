@@ -11,6 +11,7 @@ import { createAwakening } from './awakening.js';
 import { createZoomOrbit } from './zoom-orbit.js';
 import { createGratitudeLight } from './gratitude-light.js';
 import { createGratitudePrompt } from '../integrations/gratitude-prompt.js';
+import { createTreeGreeting } from './tree-greeting.js';
 import { createContentRoot } from '../integrations/content.js';
 
 export function createWorld(canvas, onComplete, onStageStart) {
@@ -64,6 +65,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const gratitudePrompt = createGratitudePrompt(document.querySelector('#gratitude'), reducedMotion);
+  const greeting = createTreeGreeting({ canvas, camera, tree, element: document.querySelector('#reveal') });
   const gratitude = createGratitudeLight({ tree, onChange: gratitudePrompt.show });
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
     onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
@@ -126,6 +128,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     if (stage.isSettled) {
       gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
       gratitudePrompt.update(delta);
+      greeting.update();
     }
     renderer.render(scene, camera);
   }
@@ -143,6 +146,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
       interaction.dispose();
       gratitude.dispose();
       gratitudePrompt.dispose();
+      greeting.dispose();
       zoomOrbit.dispose();
       controls.dispose();
       ribbons.dispose();

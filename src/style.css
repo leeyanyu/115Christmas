@@ -92,3 +92,8 @@ main.stage-settled .gratitude{bottom:calc(81px + env(safe-area-inset-bottom));li
   main.is-fullscreen.stage-settled .invitation #awaken,main.is-fullscreen.stage-settled .gratitude,main.is-fullscreen.stage-settled .status{opacity:0;visibility:hidden;pointer-events:none}
   main.is-fullscreen.stage-settled .reveal{bottom:40px}
 }
+@media(max-width:700px) and (min-height:521px){
+  main.stage-settled .reveal{top:var(--greeting-top,150px);left:7%;right:7%;width:86%;font-family:Georgia,"Times New Roman",serif;font-synthesis:style;font-size:14px;line-height:1.2;letter-spacing:2px;text-align:center;transition:opacity .5s}
+  main.stage-settled .reveal em{font-size:clamp(24px,6.7vw,28px);font-style:italic;font-weight:400;line-height:1.2;margin-top:5px;white-space:nowrap}
+  main.stage-settled .reveal.visible{opacity:var(--greeting-opacity,1)}
+}
