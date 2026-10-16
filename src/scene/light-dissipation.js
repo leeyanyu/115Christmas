@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { palette } from './art-direction.js';
 
 // Small, deterministic motes inherit positions along each dissolving light band.
 export function createLightDissipation(scene, strips, pixelRatio) {
@@ -19,7 +20,7 @@ export function createLightDissipation(scene, strips, pixelRatio) {
   geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
   geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
   const material = new THREE.ShaderMaterial({
-    uniforms: { pixelRatio: { value: pixelRatio } },
+    uniforms: { tint: { value: new THREE.Color(palette.ivory) }, pixelRatio: { value: pixelRatio } },
     vertexShader: `
       uniform float pixelRatio;
       attribute float alpha;
@@ -32,11 +33,12 @@ export function createLightDissipation(scene, strips, pixelRatio) {
         gl_PointSize=clamp(size*pixelRatio*8.0/max(1.0,-p.z),1.0,18.0);
       }`,
     fragmentShader: `
+      uniform vec3 tint;
       varying float vAlpha;
       void main(){
         float r=length(gl_PointCoord-.5)*2.0;
         float glow=exp(-r*r*4.0)*(1.0-smoothstep(.5,1.0,r));
-        gl_FragColor=vec4(1.0,.86,.6,glow*vAlpha);
+        gl_FragColor=vec4(tint,glow*vAlpha*.7);
       }`,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
   });

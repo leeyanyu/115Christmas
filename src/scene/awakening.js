@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { palette } from './art-direction.js';
 
 export const AWAKENING_DURATION = 8.5;
 
@@ -7,7 +8,7 @@ export function createAwakening(tree, onComplete, ribbons) {
   const positions = new Float32Array(count * 3);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({ color: 0xffd889, size: .055, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const material = new THREE.PointsMaterial({ color: palette.champagne, size: .055, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const particles = new THREE.Points(geometry, material);
   particles.frustumCulled = false;
   tree.root.add(particles);
@@ -41,11 +42,11 @@ export function createAwakening(tree, onComplete, ribbons) {
       const progress = Math.min(elapsed / AWAKENING_DURATION, 1);
       tree.bulbs.forEach((bulb, i) => {
         const lit = grown(bulb.position.y) > .55;
-        bulb.material.color.setHex(lit ? 0xffdf91 : 0x6c6650);
+        bulb.material.color.set(lit ? palette.ivory : palette.unlit);
         bulb.scale.setScalar(lit ? 1.15 : .001);
       });
-      tree.starMaterial.emissiveIntensity = THREE.MathUtils.smoothstep(progress, .78, 1) * 2;
-      material.opacity = Math.max(0, Math.min(elapsed - 2.0, 1)) * (reducedMotion ? .25 : .8);
+      tree.starMaterial.emissiveIntensity = THREE.MathUtils.smoothstep(progress, .78, 1) * .45;
+      material.opacity = Math.max(0, Math.min(elapsed - 2.0, 1)) * (reducedMotion ? .18 : .45);
       for (let i = 0; i < count; i++) {
         const t = ((i / count + elapsed * .15) % 1);
         const angle = t * Math.PI * 10 + (reducedMotion ? 0 : time * .5);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { palette } from './art-direction.js';
 
 // A fixed budget of soft lights appears gradually, then remains around the tree.
 export function createTreeMotes(scene) {
@@ -20,7 +21,7 @@ export function createTreeMotes(scene) {
   geometry.setAttribute('birth', new THREE.BufferAttribute(births, 1));
   geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
   const material = new THREE.ShaderMaterial({
-    uniforms: { elapsed: { value: 0 }, motion: { value: 1 }, pixelRatio: { value: 1 } },
+    uniforms: { tint: { value: new THREE.Color(palette.champagne) }, elapsed: { value: 0 }, motion: { value: 1 }, pixelRatio: { value: 1 } },
     vertexShader: `
       uniform float elapsed;
       uniform float motion;
@@ -38,11 +39,12 @@ export function createTreeMotes(scene) {
         gl_PointSize=clamp(size*pixelRatio*9.0/max(1.0,-view.z),1.0,12.0);
       }`,
     fragmentShader: `
+      uniform vec3 tint;
       varying float alpha;
       void main(){
         float radius=length(gl_PointCoord-.5)*2.0;
         float glow=exp(-radius*radius*3.0)*(1.0-smoothstep(.6,1.0,radius));
-        gl_FragColor=vec4(1.0,.83,.48,glow*alpha);
+        gl_FragColor=vec4(tint,glow*alpha*.65);
       }`,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
   });

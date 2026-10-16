@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-const DURATION = 4.2;
+const DURATION = 5.2;
+const APPROACH_END = .65;
 const ease = t => t * t * t * (t * (t * 6 - 15) + 10);
 
 // Moves the existing tree canvas onto center stage, then hands the camera back
@@ -24,6 +25,7 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
 
   return {
     get isMoving() { return state === 'moving'; },
+    get isSettled() { return state === 'settled'; },
     start(time) {
       state = 'moving';
       startedAt = time;
@@ -43,7 +45,12 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
     update(time, reducedMotion) {
       if (state !== 'moving') return;
       const progress = Math.min((time - startedAt) / (reducedMotion ? .7 : DURATION), 1);
-      const t = ease(progress);
+      // Finish the turn at the close-up, then let the camera breathe back out.
+      // Reduced motion keeps the short, direct transition without overshoot.
+      const approach = reducedMotion ? progress : Math.min(progress / APPROACH_END, 1);
+      const t = ease(approach);
+      const retreat = reducedMotion ? 1 : ease(THREE.MathUtils.clamp(
+        (progress - APPROACH_END) / (1 - APPROACH_END), 0, 1));
       const width = THREE.MathUtils.lerp(origin.width, innerWidth, t);
       const height = THREE.MathUtils.lerp(origin.height, innerHeight, t);
       Object.assign(container.style, {
@@ -53,7 +60,10 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       const distance = fittedDistance(innerWidth / innerHeight);
-      const endPosition = finalTarget.clone().add(new THREE.Vector3(0, .10, 1).normalize().multiplyScalar(distance));
+      // A restrained portrait close-up keeps the tree within narrow phone framing.
+      const closeUpRatio = innerWidth < innerHeight ? .82 : .74;
+      const dolly = reducedMotion ? 1 : THREE.MathUtils.lerp(closeUpRatio, 1, retreat);
+      const endPosition = finalTarget.clone().add(new THREE.Vector3(0, .10, 1).normalize().multiplyScalar(distance * dolly));
       camera.position.lerpVectors(startPosition, endPosition, t);
       controls.target.lerpVectors(startTarget, finalTarget, t);
       tree.root.rotation.y = initialRotation + (reducedMotion ? 0 : Math.PI * 2 * t);
