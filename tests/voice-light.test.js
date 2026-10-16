@@ -4,7 +4,7 @@ import { createVoiceLight } from '../src/integrations/voice-light.js';
 
 test('cancelled microphone permission releases a late stream; denied permission remains retryable', async () => {
   const saved = Object.fromEntries(['window', 'document', 'navigator', 'cancelAnimationFrame'].map(k => [k, Object.getOwnPropertyDescriptor(globalThis, k)]));
-  class Button extends EventTarget { setAttribute() {} }
+  class Button extends EventTarget { setAttribute(key, value) { this[key] = value; } }
   const button = new Button(), note = {}, meter = {};
   let resolvePermission, closed = 0, stopped = 0;
   class Context { async resume() {} async close() { closed++; } }
@@ -24,7 +24,7 @@ test('cancelled microphone permission releases a late stream; denied permission 
     button.dispatchEvent(new Event('click'));
     await new Promise(resolve => setImmediate(resolve));
     assert.match(note.textContent, /尚未允許/);
-    assert.equal(button.textContent, '用歌聲點亮');
+    assert.equal(button['aria-label'], '用歌聲點亮');
     effect.dispose();
   } finally {
     for (const [key, descriptor] of Object.entries(saved)) {

@@ -23,9 +23,10 @@
       <div id="reveal" class="reveal" aria-hidden="true">Light Up <em>Christmas 2026</em></div>
       <p id="gratitude" class="gratitude" role="status" aria-live="polite" aria-atomic="true">輕觸聖誕樹，讓每一份感恩慢慢發光</p>
       <aside class="voice-panel" aria-label="聖誕節大聲唱，把感恩唱出來">
-        <button id="voice-toggle" type="button" aria-pressed="false">用歌聲點亮</button>
-        <meter id="voice-meter" min="0" max="1" value="0" aria-label="聲音能量"></meter>
-        <p id="voice-note">持續哼唱，讓感恩發光。聲音只在裝置內分析，不錄音、不上傳。</p>
+        <button id="voice-toggle" type="button" aria-label="用歌聲點亮" title="用歌聲點亮" aria-pressed="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1M12 18v3M9 21h6"/></svg></button>
+        <div class="voice-wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <meter id="voice-meter" class="visually-hidden" min="0" max="1" value="0" aria-label="聲音能量"></meter>
+        <p id="voice-note" class="visually-hidden" role="status" aria-live="polite">持續哼唱，讓感恩發光。聲音只在裝置內分析，不錄音、不上傳。</p>
       </aside>
       <footer><span>A LITTLE LIGHT. A LITTLE WONDER.</span><span>GJ CHRISTMAS 2026 <i>✦</i></span></footer>
     </main>
