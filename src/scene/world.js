@@ -12,6 +12,7 @@ import { createZoomOrbit } from './zoom-orbit.js';
 import { createGratitudeLight } from './gratitude-light.js';
 import { createGratitudePrompt } from '../integrations/gratitude-prompt.js';
 import { createTreeGreeting } from './tree-greeting.js';
+import { createTreeCelebration } from './tree-celebration.js';
 import { createContentRoot } from '../integrations/content.js';
 
 export function createWorld(canvas, onComplete, onStageStart) {
@@ -66,7 +67,11 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const gratitudePrompt = createGratitudePrompt(document.querySelector('#gratitude'), reducedMotion);
   const greeting = createTreeGreeting({ canvas, camera, tree, element: document.querySelector('#reveal') });
-  const gratitude = createGratitudeLight({ tree, onChange: gratitudePrompt.show });
+  let celebration;
+  const gratitude = createGratitudeLight({ tree, onChange: state => {
+    gratitudePrompt.show(state);
+    if (state.phase === 'blooming') celebration?.start(reducedMotion.matches);
+  } });
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
     onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
     onReward: message => {
@@ -75,6 +80,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     } });
   const atmosphere = createRotationAtmosphere(canvas);
   const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: atmosphere.update });
+  celebration = createTreeCelebration({ tree, canvas, controls, onStart: () => interaction.celebrate() });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
   // Observers run after animation callbacks. Never resize/clear a WebGL buffer
@@ -115,7 +121,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
     previous = now;
     if (document.hidden) return;
     time += delta;
-    rotationGlow.beforeUpdate(delta, stage.isSettled, reducedMotion.matches);
+    rotationGlow.beforeUpdate(delta, stage.isSettled && !celebration.isActive, reducedMotion.matches);
+    celebration.update(delta, stage.isSettled, reducedMotion.matches);
     controls.update(delta);
     zoomOrbit.update(delta, reducedMotion.matches, stage.isSettled);
     motes.update(time-sequenceStart, reducedMotion.matches);
@@ -136,12 +143,13 @@ export function createWorld(canvas, onComplete, onStageStart) {
   return {
     addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
     setVoiceLevel: value => gratitude.setVoiceLevel(value),
-    awaken: () => { rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener('resize', requestResize);
       rotationGlow.dispose();
+      celebration.dispose();
       atmosphere.dispose();
       interaction.dispose();
       gratitude.dispose();
