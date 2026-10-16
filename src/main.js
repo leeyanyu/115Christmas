@@ -13,7 +13,7 @@ try {
     reveal.setAttribute('aria-hidden', 'false');
     label.textContent = '再次喚醒聖誕樹';
     button.disabled = false;
-    status.textContent = 'Light Up Christmas 2026 · 拖曳旋轉，輕觸聖誕樹點亮星光';
+    status.textContent = 'Light Up Christmas 2026 · 拖曳聖誕樹，探索每一面星光';
     document.querySelector('main').classList.add('stage-settled');
   }, () => {
     document.querySelector('main').classList.add('stage-active', 'awakened');

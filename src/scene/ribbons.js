@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { palette } from './art-direction.js';
 import { createLightDissipation } from './light-dissipation.js';
 
 // Full-viewport light field, independent of the tree canvas and its orbit camera.
@@ -18,8 +17,6 @@ export function createRibbons(getLandingPoint) {
   const segments = 320;
   const strips = [];
   const fragmentShader = `
-    uniform vec3 champagne;
-    uniform vec3 ivory;
     uniform float time;
     uniform float opacity;
     uniform float seed;
@@ -33,9 +30,9 @@ export function createRibbons(getLandingPoint) {
       float sheen = gaussian(x-fold*.28,.035);
       float edgeLight = gaussian(abs(x)-.48,.008)*.3;
       float halo = gaussian(x,.45)*.14;
-      vec3 gold = champagne * (.62 + .18*fold);
-      vec3 satin = gold + ivory*.26*sheen + ivory*.12*edgeLight;
-      vec3 color = mix(champagne,satin,body);
+      vec3 gold = mix(vec3(.55,.32,.10),vec3(.94,.72,.36),.5+.5*fold);
+      vec3 satin = gold + vec3(.42,.34,.20)*sheen + vec3(.28,.20,.09)*edgeLight;
+      vec3 color = mix(vec3(.95,.69,.32),satin,body);
       float endFade = smoothstep(0.0,.09,s)*(1.0-smoothstep(.88,1.0,s));
       float feather = 1.0-smoothstep(.75,1.0,abs(x));
       gl_FragColor = vec4(color,(body*.83+halo)*feather*endFade*opacity);
@@ -53,7 +50,7 @@ export function createRibbons(getLandingPoint) {
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     const material = new THREE.ShaderMaterial({
-      uniforms: { champagne: { value: new THREE.Color(palette.champagne) }, ivory: { value: new THREE.Color(palette.ivory) }, time: { value: 0 }, opacity: { value: 0 }, seed: { value: i * 2.17 } },
+      uniforms: { time: { value: 0 }, opacity: { value: 0 }, seed: { value: i * 2.17 } },
       vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
       fragmentShader, transparent: true, blending: THREE.NormalBlending,
       depthWrite: false, depthTest: false, side: THREE.DoubleSide,
@@ -65,17 +62,16 @@ export function createRibbons(getLandingPoint) {
   }
   const dissipation = createLightDissipation(scene, strips, renderer.getPixelRatio());
   const hazeMaterial = new THREE.ShaderMaterial({
-    uniforms: { tint: { value: new THREE.Color(palette.champagne) }, opacity: { value: 0 } },
+    uniforms: { opacity: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader: `
-      uniform vec3 tint;
       uniform float opacity;
       varying vec2 vUv;
       void main(){
         vec2 p = vUv*2.0-1.0;
         float radius = dot(p,p);
         float mist = exp(-radius*3.8)*(1.0-smoothstep(.35,1.0,radius));
-        vec3 color = tint;
+        vec3 color = mix(vec3(.7,.51,.29),vec3(1.0,.88,.65),exp(-radius*9.0));
         gl_FragColor=vec4(color,mist*opacity);
       }`,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
@@ -134,7 +130,7 @@ export function createRibbons(getLandingPoint) {
         return;
       }
       dissipation.update(elapsed);
-      hazeMaterial.uniforms.opacity.value = THREE.MathUtils.smoothstep(elapsed,.8,2.3) * (1-THREE.MathUtils.smoothstep(elapsed,3.1,5.2)) * .3;
+      hazeMaterial.uniforms.opacity.value = THREE.MathUtils.smoothstep(elapsed,.8,2.3) * (1-THREE.MathUtils.smoothstep(elapsed,3.1,5.2)) * .48;
       strips.forEach(({ mesh, positions, curve }, i) => {
         // The leading edge flies in quickly; a long trailing ribbon preserves the S silhouette.
         const local = elapsed-i*.075;
