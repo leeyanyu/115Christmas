@@ -10,6 +10,7 @@ import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
 import { createZoomOrbit } from './zoom-orbit.js';
 import { createGratitudeLight } from './gratitude-light.js';
+import { createGratitudePrompt } from '../integrations/gratitude-prompt.js';
 import { createContentRoot } from '../integrations/content.js';
 
 export function createWorld(canvas, onComplete, onStageStart) {
@@ -62,13 +63,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
   awakening.start(0);
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const gratitudeLabel = document.querySelector('#gratitude');
-  const gratitude = createGratitudeLight({ tree, onChange: ({ phase, count, total }) => {
-    gratitudeLabel.textContent = phase === 'blooming'
-      ? '每一份感恩，都讓冬夜更明亮。謝謝你 ✧'
-      : count ? `感恩的光 ${count} / ${total} · 讓祝福慢慢抵達星星`
-        : '輕觸聖誕樹，讓每一份感恩慢慢發光';
-  } });
+  const gratitudePrompt = createGratitudePrompt(document.querySelector('#gratitude'), reducedMotion);
+  const gratitude = createGratitudeLight({ tree, onChange: gratitudePrompt.show });
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
     onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
     onReward: message => { document.querySelector('#status').textContent = message; } });
@@ -124,7 +120,10 @@ export function createWorld(canvas, onComplete, onStageStart) {
     syncRendererSize();
     interaction.update(delta, renderer.getPixelRatio());
     rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
-    if (stage.isSettled) gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
+    if (stage.isSettled) {
+      gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
+      gratitudePrompt.update(delta);
+    }
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
@@ -140,6 +139,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
       atmosphere.dispose();
       interaction.dispose();
       gratitude.dispose();
+      gratitudePrompt.dispose();
       zoomOrbit.dispose();
       controls.dispose();
       ribbons.dispose();

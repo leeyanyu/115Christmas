@@ -10,6 +10,7 @@ export function createFullscreenControl(button, target, onError = () => {}, doc 
   function sync() {
     const active = activeElement() === target;
     button.classList.toggle('is-active', active);
+    target.classList.toggle('is-fullscreen', active);
     button.setAttribute('aria-pressed', String(active));
     button.setAttribute('aria-label', active ? '離開全螢幕' : '進入全螢幕');
     button.querySelector('.fullscreen-icon').textContent = active ? '×' : '⛶';
@@ -35,6 +36,7 @@ export function createFullscreenControl(button, target, onError = () => {}, doc 
   return {
     show() { button.hidden = false; },
     dispose() {
+      target.classList.remove('is-fullscreen');
       button.removeEventListener('click', toggle);
       doc.removeEventListener('fullscreenchange', sync);
       doc.removeEventListener('webkitfullscreenchange', sync);
