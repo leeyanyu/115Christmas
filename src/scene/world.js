@@ -66,7 +66,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const gratitude = createGratitudeLight({ tree, onChange: ({ phase, count, total }) => {
     gratitudeLabel.textContent = phase === 'blooming'
       ? '每一份感恩，都讓冬夜更明亮。謝謝你 ✧'
-      : count ? `感恩的光 ${count} / ${total} · 再輕觸，讓祝福抵達星星`
+      : count ? `感恩的光 ${count} / ${total} · 讓祝福慢慢抵達星星`
         : '輕觸聖誕樹，讓每一份感恩慢慢發光';
   } });
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
@@ -129,6 +129,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
   }
   frame = requestAnimationFrame(animate);
   return {
+    addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
+    setVoiceLevel: value => gratitude.setVoiceLevel(value),
     awaken: () => { rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);

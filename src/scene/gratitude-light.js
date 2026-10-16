@@ -41,16 +41,19 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
   const halo = new THREE.Points(geometry, material);
   halo.name = 'gratitude-light'; halo.frustumCulled = false; halo.visible = false;
   tree.root.add(halo);
-  let energy = 0, progress = 0, phase = 'collecting', elapsed = 0, clock = 0, lastTouch = -Infinity;
+  let energy = 0, progress = 0, phase = 'collecting', elapsed = 0, clock = 0, lastTouch = -Infinity, voiceLevel = 0;
   const notify = () => onChange({ phase, count: Math.round(energy * 12), total: 12 });
   function addEnergy(amount) {
     if (phase !== 'collecting' || !Number.isFinite(amount) || amount <= 0) return false;
+    const oldCount = Math.round(energy * 12);
     energy = Math.min(1, energy + amount);
     if (energy >= 1 - 1e-8) { energy = 1; phase = 'blooming'; elapsed = 0; }
-    notify(); return true;
+    if (Math.round(energy * 12) !== oldCount || phase === 'blooming') notify();
+    return true;
   }
   return {
     addEnergy,
+    setVoiceLevel(value) { voiceLevel = THREE.MathUtils.clamp(value, 0, 1); },
     touch() {
       if (clock - lastTouch < .18 || phase !== 'collecting') return false;
       lastTouch = clock; return addEnergy(1 / 12);
@@ -68,7 +71,7 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
       const amplitude = reducedMotion ? .35 : 1;
       material.uniforms.progress.value = progress;
       material.uniforms.bloom.value = bloom * amplitude;
-      material.uniforms.strength.value = strength * amplitude;
+      material.uniforms.strength.value = (strength + voiceLevel * .35) * amplitude;
       material.uniforms.pixelRatio.value = pixelRatio;
       halo.visible = strength > .001;
       warmLight.intensity = bloom * amplitude * 5;
@@ -77,13 +80,13 @@ export function createGratitudeLight({ tree, onChange = () => {} }) {
       tree.bulbs.forEach(bulb => {
         const height = (bulb.position.y - .7) / 3.05;
         const lit = THREE.MathUtils.smoothstep(progress, height - .07, height + .07) * strength * amplitude;
-        bulb.material.color.multiplyScalar(1 + lit * .4 + bloom * amplitude * 1.0);
+        bulb.material.color.multiplyScalar(1 + lit * .4 + bloom * amplitude * 1.0 + voiceLevel * amplitude * .5);
         if (bulb.scale.x > 1) bulb.scale.multiplyScalar(1 + bloom * amplitude * .35);
       });
       tree.starMaterial.emissiveIntensity += bloom * amplitude * 2.4;
     },
     reset() {
-      energy = 0; progress = 0; phase = 'collecting'; elapsed = 0; clock = 0; lastTouch = -Infinity;
+      energy = 0; progress = 0; phase = 'collecting'; elapsed = 0; clock = 0; lastTouch = -Infinity; voiceLevel = 0;
       halo.visible = false; material.uniforms.strength.value = 0; notify();
       warmLight.intensity = 0;
     },

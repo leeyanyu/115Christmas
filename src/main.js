@@ -1,6 +1,7 @@
 import './style.css';
 import { createWorld } from './scene/world.js';
 import { createFullscreenControl } from './integrations/fullscreen.js';
+import { createVoiceLight } from './integrations/voice-light.js';
 
 const button = document.querySelector('#awaken');
 const label = document.querySelector('#button-label');
@@ -12,6 +13,7 @@ const fullscreenControl = createFullscreenControl(
   message => { status.textContent = message; },
 );
 let world;
+let voice;
 try {
   world = createWorld(document.querySelector('#tree-canvas'), () => {
     reveal.classList.add('visible');
@@ -28,6 +30,7 @@ try {
     status.textContent = '燈光已點亮，讓聖誕樹來到舞台中央…';
   });
   button.addEventListener('click', () => {
+    voice?.stop();
     reveal.classList.remove('visible');
     reveal.setAttribute('aria-hidden', 'true');
     document.querySelector('main').classList.remove('awakened', 'stage-active', 'stage-settled');
@@ -36,6 +39,8 @@ try {
     status.textContent = '讓光沿著枝葉，慢慢抵達星空…';
     world.awaken();
   });
+  voice = createVoiceLight({ button: document.querySelector('#voice-toggle'), note: document.querySelector('#voice-note'),
+    meter: document.querySelector('#voice-meter'), onEnergy: amount => world.addVoiceEnergy(amount), onLevel: value => world.setVoiceLevel(value) });
   button.disabled = true;
   label.textContent = '星光正在匯聚';
   status.textContent = '讓彩帶穿過冬夜，喚醒每一片枝葉…';
@@ -45,4 +50,4 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { fullscreenControl.dispose(); world?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
