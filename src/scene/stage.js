@@ -24,6 +24,7 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
 
   return {
     get isMoving() { return state === 'moving'; },
+    get isSettled() { return state === 'settled'; },
     start(time) {
       state = 'moving';
       startedAt = time;

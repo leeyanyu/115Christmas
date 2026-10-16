@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createRibbons } from './ribbons.js';
 import { createTreeMotes } from './tree-motes.js';
 import { createStage } from './stage.js';
+import { createTreeInteraction } from './tree-interaction.js';
+import { createRotationGlow } from './rotation-glow.js';
 import { createTree } from './tree.js';
 import { createAwakening } from './awakening.js';
 import { createContentRoot } from '../integrations/content.js';
@@ -52,6 +54,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
   awakening.start(0);
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving });
+  const rotationGlow = createRotationGlow({ tree, controls, canvas });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
   // Observers run after animation callbacks. Never resize/clear a WebGL buffer
@@ -92,21 +96,26 @@ export function createWorld(canvas, onComplete, onStageStart) {
     previous = now;
     if (document.hidden) return;
     time += delta;
-    controls.update();
+    rotationGlow.beforeUpdate(delta, stage.isSettled, reducedMotion.matches);
+    controls.update(delta);
     motes.update(time-sequenceStart, reducedMotion.matches);
     awakening.update(time, reducedMotion.matches);
     stage.update(time, reducedMotion.matches);
     // Any buffer allocation must be followed by a render in the same frame.
     syncRendererSize();
+    interaction.update(delta, renderer.getPixelRatio());
+    rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
   return {
-    awaken: () => { stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { rotationGlow.reset(); interaction.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener('resize', requestResize);
+      rotationGlow.dispose();
+      interaction.dispose();
       controls.dispose();
       ribbons.dispose();
       const geometries = new Set(), materials = new Set();
