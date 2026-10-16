@@ -20,6 +20,8 @@ try {
     document.querySelector('main').classList.add('awakened');
     reveal.setAttribute('aria-hidden', 'false');
     label.textContent = '再次喚醒聖誕樹';
+    button.setAttribute('aria-label', '再次喚醒聖誕樹');
+    button.setAttribute('title', '再次喚醒聖誕樹');
     button.disabled = false;
     status.textContent = '雙指旋轉縮放／拖曳＋滾輪 · 快速旋轉或連點樹頂星星找驚喜';
     document.querySelector('main').classList.add('stage-settled');
