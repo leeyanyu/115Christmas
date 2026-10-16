@@ -16,6 +16,8 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
   let referenceDistance = null;
   const finalTarget = new THREE.Vector3(0, 2.05, 0);
   const direction = new THREE.Vector3();
+  const displayHeight = () => Math.max(1, innerHeight -
+    (canvas.ownerDocument?.querySelector('#stage-dock')?.getBoundingClientRect().height || 0));
 
   function fittedDistance(aspect) {
     const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
@@ -53,14 +55,14 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
       const progress = Math.min((time - startedAt) / (reducedMotion ? .7 : DURATION), 1);
       const t = ease(progress);
       const width = THREE.MathUtils.lerp(origin.width, innerWidth, t);
-      const height = THREE.MathUtils.lerp(origin.height, innerHeight, t);
+      const height = THREE.MathUtils.lerp(origin.height, displayHeight(), t);
       Object.assign(container.style, {
         left: `${origin.left * (1 - t)}px`, top: `${origin.top * (1 - t)}px`,
         width: `${width}px`, height: `${height}px`,
       });
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      const distance = fittedDistance(innerWidth / innerHeight);
+      const distance = fittedDistance(innerWidth / displayHeight());
       const endPosition = finalTarget.clone().add(new THREE.Vector3(0, .10, 1).normalize().multiplyScalar(distance));
       camera.position.lerpVectors(startPosition, endPosition, t);
       controls.target.lerpVectors(startTarget, finalTarget, t);
@@ -71,7 +73,7 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
         setZoomRange(distance);
         controls.enableZoom = true;
         container.style.width = '100vw';
-        container.style.height = '100svh';
+        container.style.height = 'calc(100svh - var(--stage-dock-height))';
         controls.enabled = true;
         controls.enableDamping = true;
         onComplete();
