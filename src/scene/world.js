@@ -67,7 +67,10 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const gratitude = createGratitudeLight({ tree, onChange: gratitudePrompt.show });
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
     onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
-    onReward: message => { document.querySelector('#status').textContent = message; } });
+    onReward: message => {
+      document.querySelector('#status').textContent = message;
+      if (window.innerWidth <= 700) gratitudePrompt.announce(message);
+    } });
   const atmosphere = createRotationAtmosphere(canvas);
   const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: atmosphere.update });
   let resizePending = true;

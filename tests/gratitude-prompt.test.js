@@ -10,6 +10,10 @@ test('idle hints rotate without replacing progress or the completion blessing', 
   prompt.update(6); assert.match(element.textContent, /輕觸/);
   prompt.show({ phase: 'collecting', count: 4, total: 12 });
   prompt.update(12); assert.match(element.textContent, /4 \/ 12/);
+  prompt.announce('星光被你喚醒了！再試試連點樹頂星星三下 ✧');
+  prompt.show({ phase: 'collecting', count: 5, total: 12 });
+  prompt.update(6); assert.match(element.textContent, /星頂|樹頂/);
+  prompt.update(1); assert.match(element.textContent, /5 \/ 12/);
   prompt.show({ phase: 'blooming', count: 12, total: 12 });
   prompt.update(12); assert.match(element.textContent, /謝謝你/);
   prompt.dispose();
