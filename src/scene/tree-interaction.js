@@ -45,8 +45,8 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
     const first = hits[0];
     if (first) {
       let object = first.object;
-      while (object && object !== tree.root && !object.userData.holidayCharacter) object = object.parent;
-      first.visitor = object?.userData.holidayCharacter ? object : null;
+      while (object && object !== tree.root && !object.userData.holidayCharacter && !object.userData.holidayGift) object = object.parent;
+      first.visitor = (object?.userData.holidayCharacter || object?.userData.holidayGift) ? object : null;
     }
     return first;
   }

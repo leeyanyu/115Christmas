@@ -11,6 +11,7 @@ test('three baking shades stay brown and progress from light to dark', () => {
   for (let i = 0; i < 3; i++) {
     character.dress(i); const c = character.root.children[0].material.color;
     assert.ok(c.r > c.g && c.g > c.b);
+    assert.ok(c.r < .5, 'the pale, overbright baking shade returned');
     assert.ok(c.r + c.g + c.b < brightness); brightness = c.r + c.g + c.b;
     colors.add(c.getHex());
   }
@@ -18,7 +19,7 @@ test('three baking shades stay brown and progress from light to dark', () => {
   assert.equal(character.root.children[0].material.color.getHex(), [...colors][0]); character.dispose();
 });
 
-test('small gifts roll once, stay above the pedestal and clear foliage and the GJ inlay', () => {
+test('gifts pass through the tree base, emerge once, and leave the GJ inlay clear', () => {
   const tree = createTree(), effect = createTreeGifts(tree), root = tree.root.getObjectByName('tree-gifts');
   const branches = [], local = new THREE.Vector3(), point = new THREE.Vector3();
   tree.root.updateWorldMatrix(true, true);
@@ -30,13 +31,19 @@ test('small gifts roll once, stay above the pedestal and clear foliage and the G
   const start = root.children[0].position.clone(), rotation = root.children[0].quaternion.clone();
   effect.update(.4, true, false);
   assert.ok(root.children[0].position.length() < start.length()); assert.ok(!rotation.equals(root.children[0].quaternion));
+  const reserve = new THREE.Box3(new THREE.Vector3(-.35, 0, 1.20), new THREE.Vector3(.35, .6, 1.65));
+  let crossedBase = false;
   for (let frame = 0; frame < 60; frame++) {
     effect.update(.1, true, false); tree.root.updateWorldMatrix(true, true);
     for (const gift of root.children) {
       if (!gift.visible) continue;
       const bounds = new THREE.Box3().setFromObject(gift);
       assert.ok(bounds.min.y >= .0799, 'gift sinks into pedestal');
-      assert.ok(bounds.min.x > .45 || bounds.max.x < -.45, 'gift crosses the GJ reserve');
+      assert.ok(!bounds.intersectsBox(reserve), 'gift crosses the GJ reserve');
+      if (Math.hypot(gift.position.x, gift.position.z) < .3) crossedBase = true;
+      // Crossing foliage is intentional during entry. Once parked, the boxes
+      // should remain visible beneath it rather than intersecting its branches.
+      if (frame < 52) continue;
       gift.traverse(mesh => {
         if (!mesh.geometry) return;
         const positions = mesh.geometry.attributes.position;
@@ -50,10 +57,35 @@ test('small gifts roll once, stay above the pedestal and clear foliage and the G
       });
     }
   }
+  assert.ok(crossedBase, 'gifts still approach only along the outside rim');
   const resting = root.children.map(gift => gift.position.clone());
   effect.update(100, true, false); root.children.forEach((gift, i) => assert.ok(gift.position.equals(resting[i])));
   const colors = root.children.map(gift => gift.children[0].material.color.getHex()); assert.equal(new Set(colors).size, 3);
   effect.dispose(); assert.equal(tree.root.getObjectByName('tree-gifts'), undefined);
+});
+
+test('tapped presents roll out of the frame once and stay gone until replay', () => {
+  for (const aspect of [1.5, .5]) {
+    const tree = createTree(), effect = createTreeGifts(tree), camera = new THREE.PerspectiveCamera(37, aspect);
+    camera.position.set(0, 3, 10); camera.lookAt(0, 2, 0); camera.updateMatrixWorld();
+    effect.update(.6, true, false); assert.equal(effect.targets.length, 0);
+    effect.update(10, true, false); assert.equal(effect.targets.length, 3);
+    const gift = effect.targets[1], position = gift.position.clone(), rotation = gift.quaternion.clone();
+    assert.equal(effect.tap(gift.children[0], camera), true); assert.equal(effect.tap(gift, camera), false);
+    assert.equal(effect.targets.includes(gift), false);
+    effect.update(.4, true, false);
+    assert.ok(gift.visible); assert.ok(gift.position.distanceTo(position) > .01); assert.ok(!gift.quaternion.equals(rotation));
+    assert.ok(effect.hitTargets.includes(gift), 'a moving gift should still block clicks on the tree behind it');
+    assert.ok(new THREE.Box3().setFromObject(gift).min.y >= .0799);
+    effect.update(2.3, true, false); assert.equal(gift.visible, false);
+    assert.ok(!effect.hitTargets.includes(gift));
+    const screen = gift.getWorldPosition(new THREE.Vector3()).project(camera); assert.ok(Math.abs(screen.x) > 1.4);
+    effect.update(100, true, false); assert.equal(gift.visible, false);
+    effect.reset(); effect.update(0, true, true); assert.equal(effect.targets.length, 3);
+    assert.equal(effect.tap(gift, camera), true); assert.equal(gift.visible, false);
+    effect.update(.1, true, false); assert.equal(gift.visible, false);
+    effect.dispose();
+  }
 });
 
 test('replay reuses gifts and reduced motion shows them at rest immediately', () => {

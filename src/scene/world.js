@@ -85,7 +85,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
     if (state.phase === 'blooming') celebration?.start(reducedMotion.matches);
   } });
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
-    visitorTargets: () => visitors.targets, onVisitorTap: object => visitors.tap(object),
+    visitorTargets: () => [...visitors.targets, ...gifts.hitTargets],
+    onVisitorTap: object => object.userData.holidayGift ? gifts.tap(object, camera) : visitors.tap(object),
     onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
     onReward: message => {
       document.querySelector('#status').textContent = message;

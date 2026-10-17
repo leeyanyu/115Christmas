@@ -18,7 +18,7 @@ export function characterMaterial(options) {
 
 export function createHolidayCharacter(kind = 'gingerbread') {
   const candy = kind === 'candy-cane';
-  const cookie = characterMaterial({ color: candy ? 0xffffff : 0xd1a16a, roughness: candy ? .4 : .8 });
+  const cookie = characterMaterial({ color: candy ? 0xffffff : 0xb77b45, roughness: candy ? .4 : .8 });
   const icing = characterMaterial({ color: candy ? 0x654536 : 0xffedd0, roughness: .65 });
   const pink = characterMaterial({ color: 0xcc8990, roughness: .7 });
   const ribbon = characterMaterial({ color: candy ? 0x8bb8a3 : 0xcc8990, roughness: .7 });
@@ -84,8 +84,8 @@ export function createHolidayCharacter(kind = 'gingerbread') {
     ball(ribbon, 0, .14, .09, .018);
     ball(icing, 0, .04, .075, .019); ball(icing, 0, -.04, .075, .019);
   }
-  // Lightly baked, golden crisp, and deep toasted; every palette stays brown.
-  const colors = [[0xd1a16a, 0xcc8990], [0xb77b45, 0x8bb8a3], [0x825032, 0xd8ba76]];
+  // Golden crisp, toasted, and deep toasted; omit the pale, overbright cookie.
+  const colors = [[0xb77b45, 0xcc8990], [0x9e653e, 0x8bb8a3], [0x825032, 0xd8ba76]];
   return {
     root, body,
     dress(index) { if (!candy) cookie.color.setHex(colors[index % colors.length][0]); ribbon.color.setHex(colors[index % colors.length][1]); },

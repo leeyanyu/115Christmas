@@ -16,6 +16,7 @@ export function createTreeGifts(tree) {
     { angle: -1.02, size: .17, delay: 2 },
   ].map((settings, index) => {
     const group = new THREE.Group(); group.name = `small-gift-${index + 1}`; root.add(group);
+    group.userData.holidayGift = true;
     function piece(geometry, material, x, y, z, sx, sy, sz) {
       const mesh = new THREE.Mesh(geometry, material); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); group.add(mesh); return mesh;
     }
@@ -34,31 +35,74 @@ export function createTreeGifts(tree) {
       const { min, max } = mesh.geometry.boundingBox;
       for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) support.push(new THREE.Vector3(x, y, z).applyMatrix4(mesh.matrix));
     });
-    return { ...settings, group, support,
+    return { ...settings, group, support, phase: 'entering', exitTime: 0,
+      exitFrom: new THREE.Vector3(), exitTo: new THREE.Vector3(), exitAxis: new THREE.Vector3(), exitRotation: new THREE.Quaternion(),
       axis: new THREE.Vector3(Math.cos(settings.angle), 0, -Math.sin(settings.angle)),
       resting: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), index % 2 ? -.22 : .18),
     };
   });
-  let elapsed = 0;
-  function place(gift, progress) {
-    const t = 1 - (1 - progress) ** 3, radius = THREE.MathUtils.lerp(3.3, 1.54, t);
-    roll.setFromAxisAngle(gift.axis, -(radius - 1.54) / (gift.size * .55));
-    gift.group.quaternion.copy(roll).multiply(gift.resting);
+  let elapsed = 0, reduced = false;
+  function ground(gift) {
     let bottom = Infinity;
     for (const sample of gift.support) bottom = Math.min(bottom, point.copy(sample).applyQuaternion(gift.group.quaternion).y * gift.size);
     gift.group.scale.setScalar(gift.size);
-    gift.group.position.set(Math.sin(gift.angle) * radius, .08 - bottom, Math.cos(gift.angle) * radius);
+    gift.group.position.y = .08 - bottom;
+  }
+  function place(gift, progress) {
+    // Travel from the far side through the lower foliage, then emerge beneath
+    // the tree. The foliage itself supplies the occlusion during this surprise.
+    const t = 1 - (1 - progress) ** 3, radius = THREE.MathUtils.lerp(-2.6, 1.50, t);
+    roll.setFromAxisAngle(gift.axis, -(radius - 1.50) / (gift.size * .55));
+    gift.group.quaternion.copy(roll).multiply(gift.resting);
+    gift.group.position.set(Math.sin(gift.angle) * radius, 0, Math.cos(gift.angle) * radius);
+    ground(gift);
   }
   return {
+    get targets() { return root.visible ? gifts.filter(gift => gift.phase === 'resting' && gift.group.visible).map(gift => gift.group) : []; },
+    // Moving gifts still block rays, so a second tap cannot click the tree
+    // through a present that is already on its way out.
+    get hitTargets() { return root.visible ? gifts.filter(gift => gift.group.visible).map(gift => gift.group) : []; },
+    tap(object, camera) {
+      while (object && !object.userData.holidayGift) object = object.parent;
+      const gift = gifts.find(item => item.group === object);
+      if (!root.visible || !gift || gift.phase !== 'resting') return false;
+      if (reduced) { gift.phase = 'gone'; gift.group.visible = false; return true; }
+      gift.exitFrom.copy(gift.group.position); gift.exitRotation.copy(gift.group.quaternion);
+      if (camera) {
+        camera.updateMatrixWorld(); tree.root.updateWorldMatrix(true, true);
+        point.copy(gift.group.position); tree.root.localToWorld(point); point.project(camera);
+        // Keep the current depth: rolling away must not rush toward the lens.
+        point.x = point.x < 0 ? -1.55 : 1.55; point.unproject(camera); tree.root.worldToLocal(point);
+        gift.exitTo.copy(point);
+      } else gift.exitTo.copy(gift.exitFrom).multiplyScalar(4);
+      gift.exitTo.y = gift.exitFrom.y;
+      gift.exitAxis.subVectors(gift.exitTo, gift.exitFrom); gift.exitAxis.y = 0;
+      gift.exitAxis.set(-gift.exitAxis.z, 0, gift.exitAxis.x).normalize();
+      gift.exitTime = 0; gift.phase = 'exiting'; return true;
+    },
     update(delta, ready, reducedMotion) {
       root.visible = ready; if (!ready) return;
+      reduced = reducedMotion;
       elapsed = reducedMotion ? 5.2 : elapsed + delta;
       for (const gift of gifts) {
+        if (gift.phase === 'gone') { gift.group.visible = false; continue; }
+        if (gift.phase === 'exiting') {
+          gift.exitTime += delta;
+          const t = reducedMotion ? 1 : Math.min(1, gift.exitTime / 2.6), distance = gift.exitFrom.distanceTo(gift.exitTo);
+          const advance = t * t * (3 - 2 * t);
+          gift.group.position.lerpVectors(gift.exitFrom, gift.exitTo, advance);
+          roll.setFromAxisAngle(gift.exitAxis, distance * advance / (gift.size * .55));
+          gift.group.quaternion.copy(roll).multiply(gift.exitRotation); ground(gift);
+          if (t === 1) { gift.phase = 'gone'; gift.group.visible = false; }
+          continue;
+        }
         gift.group.visible = reducedMotion || elapsed >= gift.delay;
-        place(gift, reducedMotion ? 1 : THREE.MathUtils.clamp((elapsed - gift.delay) / 3.2, 0, 1));
+        const progress = reducedMotion ? 1 : THREE.MathUtils.clamp((elapsed - gift.delay) / 3.2, 0, 1);
+        place(gift, progress);
+        if (progress === 1) gift.phase = 'resting';
       }
     },
-    reset() { elapsed = 0; root.visible = false; },
+    reset() { elapsed = 0; root.visible = false; gifts.forEach(gift => { gift.phase = 'entering'; gift.exitTime = 0; gift.group.visible = false; }); },
     dispose() { root.removeFromParent(); box.dispose(); bow.dispose(); gold.dispose(); materials.forEach(material => material.dispose()); },
   };
 }
