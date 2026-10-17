@@ -19,10 +19,11 @@ test('tree themes restore the original foliage and leave ornaments untouched', (
   theme.dispose(); assert.ok(material.color.equals(original));
 });
 
-test('gingerbread bounces offscreen without shrinking, waits out of view and reuses its model', () => {
+test('gingerbread leaves, a new character enters and climbs using the same geometry', () => {
   const tree = createTree(), camera = new THREE.PerspectiveCamera(); camera.position.set(0, 3, 10);
   const effect = createGingerbread(tree), ginger = tree.root.getObjectByName('hidden-gingerbread');
   const home = ginger.position.clone(), count = ginger.children.length;
+  const geometry = ginger.children[0].geometry, firstColor = ginger.children[0].material.color.clone();
   effect.update(2, camera, true, false); assert.ok(ginger.position.equals(home));
   camera.position.z = -10;
   camera.lookAt(0, 2, 0); camera.updateMatrixWorld();
@@ -34,9 +35,25 @@ test('gingerbread bounces offscreen without shrinking, waits out of view and reu
   effect.update(2.25, camera, true, false); assert.equal(ginger.visible, false);
   const screen = ginger.getWorldPosition(new THREE.Vector3()).project(camera);
   assert.ok(screen.x > 1.2); assert.ok(ginger.scale.x > .9);
-  effect.update(25, camera, true, false); assert.equal(ginger.visible, false);
-  camera.position.z = 10; effect.update(.1, camera, true, false);
+  effect.update(5, camera, true, false); assert.equal(ginger.visible, true);
+  assert.ok(ginger.getWorldPosition(new THREE.Vector3()).project(camera).x < -1.2);
+  assert.equal(ginger.children[0].geometry, geometry);
+  assert.ok(!ginger.children[0].material.color.equals(firstColor));
+  effect.update(2.7, camera, true, false); assert.ok(Math.abs(ginger.position.y - .51) < .001);
+  effect.update(1.3, camera, true, false); assert.ok(ginger.position.y > .51 && ginger.position.y < home.y);
+  effect.update(1.3, camera, true, false);
   assert.ok(ginger.position.equals(home)); assert.equal(ginger.children.length, count);
   effect.reset(); assert.equal(ginger.visible, false);
   effect.dispose(); assert.equal(tree.root.getObjectByName('hidden-gingerbread'), undefined);
+});
+
+test('wide views use shorter grounded hops and reduced motion keeps the climber still', () => {
+  const tree = createTree(), camera = new THREE.PerspectiveCamera(37, 1.8); camera.position.set(0, 3, -10); camera.lookAt(0, 2, 0);
+  const effect = createGingerbread(tree), ginger = tree.root.getObjectByName('hidden-gingerbread');
+  effect.update(1.2, camera, true, false); effect.update(1.1, camera, true, false); effect.update(.8, camera, true, false);
+  effect.update(.24, camera, true, false); assert.ok(ginger.position.y - .51 <= .20);
+  effect.update(.24, camera, true, false); assert.ok(Math.abs(ginger.position.y - .51) < .001);
+  effect.update(.1, camera, true, true); const position = ginger.position.clone();
+  effect.update(20, camera, true, true); assert.ok(ginger.position.equals(position));
+  effect.dispose();
 });

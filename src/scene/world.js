@@ -125,7 +125,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     previous = now;
     if (document.hidden) return;
     time += delta;
-    rotationGlow.beforeUpdate(delta, stage.isSettled && !celebration.isActive, reducedMotion.matches);
+    rotationGlow.beforeUpdate(delta, stage.isSettled && !celebration.isActive && !gingerbread.isPerforming, reducedMotion.matches);
     celebration.update(delta, stage.isSettled, reducedMotion.matches);
     controls.update(delta);
     zoomOrbit.update(delta, reducedMotion.matches, stage.isSettled);

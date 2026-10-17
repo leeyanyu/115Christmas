@@ -4,6 +4,7 @@ export function createGingerbread(tree) {
   const cookie = new THREE.MeshStandardMaterial({ color: 0xbe8653, roughness: .8 });
   const icing = new THREE.MeshStandardMaterial({ color: 0xffedd0, roughness: .65 });
   const pink = new THREE.MeshStandardMaterial({ color: 0xcc8990, roughness: .7 });
+  const ribbon = new THREE.MeshStandardMaterial({ color: 0xcc8990, roughness: .7 });
   const sphere = new THREE.SphereGeometry(1, 24, 16);
   const root = new THREE.Group(); root.name = 'hidden-gingerbread';
   function ball(material, x, y, z, sx, sy = sx, sz = sx) {
@@ -38,19 +39,49 @@ export function createGingerbread(tree) {
   }
   const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.055, .275, .066), new THREE.Vector3(0, .22, .073), new THREE.Vector3(.055, .275, .066));
   root.add(new THREE.Mesh(new THREE.TubeGeometry(smile, 20, .009, 8, false), icing));
+  ball(ribbon, -.035, .14, .07, .044, .026, .012);
+  ball(ribbon, .035, .14, .07, .044, .026, .012);
+  ball(ribbon, 0, .14, .08, .018);
   ball(icing, 0, .04, .065, .019); ball(icing, 0, -.04, .065, .019);
   tree.root.add(root);
   const home = new THREE.Vector3(.42, 1.95, -1.08), localCamera = new THREE.Vector3();
-  const landing = new THREE.Vector3(.85, .51, -1.3), exit = new THREE.Vector3();
+  const landing = new THREE.Vector3(.85, .51, -1.3), exit = new THREE.Vector3(), entry = new THREE.Vector3();
   const ease = t => t * t * (3 - 2 * t);
-  let phase = 'hidden', seen = 0, elapsed = 0, cooldown = 0;
-  function reset() { phase = 'hidden'; seen = elapsed = cooldown = 0; root.position.copy(home); root.rotation.set(0, Math.PI, -.15); root.scale.setScalar(1); root.visible = false; }
+  const characters = [[0xbe8653, 0xcc8990], [0xa5714d, 0x8bb8a3], [0xc69761, 0xd8ba76]];
+  let phase = 'hidden', seen = 0, elapsed = 0, cooldown = 0, character = 0, hops = 3, travelDuration = 2.7;
+  function dress() { cookie.color.setHex(characters[character][0]); ribbon.color.setHex(characters[character][1]); }
+  function screenPoint(camera, target, x) {
+    camera.updateMatrixWorld();
+    target.copy(landing); tree.root.localToWorld(target); target.project(camera);
+    target.x = x; target.unproject(camera); tree.root.worldToLocal(target); target.y = landing.y;
+  }
+  function plan(camera, point) {
+    // Wide desktop routes need smaller, quicker steps rather than long leaps.
+    hops = camera.aspect > 1.1 ? Math.min(10, Math.max(5, Math.ceil(landing.distanceTo(point) / 1.05))) : 3;
+    travelDuration = camera.aspect > 1.1 ? hops * .48 : 2.7;
+  }
+  function travel(camera, arriving) {
+    const point = arriving ? entry : exit;
+    screenPoint(camera, point, arriving ? -1.55 : 1.55);
+    const progress = Math.min(1, elapsed / travelDuration), hop = progress * hops;
+    const part = progress === 1 ? 1 : hop % 1;
+    const advance = progress === 1 ? 1 : (Math.floor(hop) + ease(part)) / hops;
+    root.position.lerpVectors(arriving ? point : landing, arriving ? landing : point, advance);
+    const height = camera.aspect > 1.1 ? .19 : .32 + Math.floor(Math.min(hop, 2)) * .06;
+    root.position.y += Math.sin(part * Math.PI) * height;
+    root.rotation.y = Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z);
+    root.rotation.z = Math.sin(part * Math.PI) * (arriving ? .12 : -.15);
+    root.scale.set(1 - Math.sin(part * Math.PI) * .035, 1 + Math.sin(part * Math.PI) * .06, 1);
+    return progress === 1;
+  }
+  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; dress(); root.position.copy(home); root.rotation.set(0, Math.PI, -.15); root.scale.setScalar(1); root.visible = false; }
   reset();
   return {
+    get isPerforming() { return phase !== 'hidden'; },
     update(delta, camera, ready, reducedMotion) {
       root.visible = ready && phase !== 'away';
       if (!ready) return;
-      if (reducedMotion && phase !== 'hidden' && phase !== 'away') { phase = 'away'; cooldown = 24; root.visible = false; }
+      if (reducedMotion && phase !== 'hidden') { reset(); root.visible = true; }
       elapsed += delta; cooldown = Math.max(0, cooldown - delta);
       tree.root.updateWorldMatrix(true, false); localCamera.copy(camera.position); tree.root.worldToLocal(localCamera);
       const behind = -localCamera.z / Math.max(.01, Math.hypot(localCamera.x, localCamera.z)) > .8;
@@ -68,31 +99,29 @@ export function createGingerbread(tree) {
         const squash = Math.exp(-t * 7) * .1;
         root.scale.set(1 + squash, 1 - squash, 1);
         root.rotation.z = -.15 * (1 - t);
-        if (t === 1) { phase = 'hopping'; elapsed = 0; root.scale.setScalar(1); }
+        if (t === 1) { phase = 'hopping'; elapsed = 0; root.scale.setScalar(1); screenPoint(camera, exit, 1.55); plan(camera, exit); }
       } else if (phase === 'hopping') {
-        // Resolve the offscreen destination in the current view, so it works
-        // after orbiting, zooming or resizing, instead of vanishing on the base.
-        camera.updateMatrixWorld();
-        exit.copy(landing); tree.root.localToWorld(exit); exit.project(camera);
-        exit.x = 1.55; exit.unproject(camera); tree.root.worldToLocal(exit); exit.y = landing.y;
-        const progress = Math.min(1, elapsed / 2.7), hop = progress * 3;
-        const part = progress === 1 ? 1 : hop % 1;
-        const advance = progress === 1 ? 1 : (Math.floor(hop) + ease(part)) / 3;
-        root.position.lerpVectors(landing, exit, advance);
-        root.position.y += Math.sin(part * Math.PI) * (.32 + Math.floor(Math.min(hop, 2)) * .06);
-        root.rotation.y = Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z);
-        root.rotation.z = Math.sin(part * Math.PI) * -.15;
-        root.scale.set(1 - Math.sin(part * Math.PI) * .035, 1 + Math.sin(part * Math.PI) * .06, 1);
-        if (progress === 1) { phase = 'away'; cooldown = 24; root.visible = false; }
-      } else if (phase === 'away' && !cooldown && localCamera.z / Math.max(.01, Math.hypot(localCamera.x, localCamera.z)) > .35) {
-        reset(); root.visible = true;
+        if (travel(camera, false)) { phase = 'away'; cooldown = 5; root.visible = false; }
+      } else if (phase === 'away' && !cooldown) {
+        character = (character + 1) % characters.length; dress();
+        screenPoint(camera, entry, -1.55); plan(camera, entry);
+        root.position.copy(entry); root.scale.setScalar(1); phase = 'arriving'; elapsed = 0; root.visible = true;
+      } else if (phase === 'arriving') {
+        if (travel(camera, true)) { phase = 'climbing'; elapsed = 0; root.scale.setScalar(1); }
+      } else if (phase === 'climbing') {
+        const progress = Math.min(1, elapsed / 2.6), step = progress * 5;
+        const part = progress === 1 ? 1 : step % 1;
+        const advance = progress === 1 ? 1 : (Math.floor(step) + ease(part)) / 5;
+        root.position.lerpVectors(landing, home, advance);
+        root.rotation.set(0, Math.PI, Math.sin(part * Math.PI) * (Math.floor(step) % 2 ? -.12 : .12));
+        if (progress === 1) { phase = 'hidden'; seen = elapsed = 0; cooldown = 6; root.rotation.z = -.15; }
       }
     },
     reset,
     dispose() {
       tree.root.remove(root);
       const geometries = new Set(); root.traverse(o => { if (o.geometry) geometries.add(o.geometry); });
-      geometries.forEach(g => g.dispose()); cookie.dispose(); icing.dispose(); pink.dispose();
+      geometries.forEach(g => g.dispose()); cookie.dispose(); icing.dispose(); pink.dispose(); ribbon.dispose();
     },
   };
 }
