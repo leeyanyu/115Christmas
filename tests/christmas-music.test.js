@@ -43,24 +43,26 @@ function setup(fetchAudio) {
     runTimers() { for (const fn of [...timers.values()]) fn(); timers.clear(); } };
 }
 
-test('music waits for a gesture, fades between rotation moods, and reuses its graph', async () => {
+test('music waits for a gesture, keeps the melody continuous, and fades synchronized accompaniment', async () => {
   const s = setup();
   s.music.update(20, true); s.music.update(1, false);
   assert.equal(s.requests.length, 0); assert.equal(s.contexts.length, 0);
   s.click(); await s.flush();
-  const context = s.contexts[0], [master, gentle, lively] = context.gains;
+  const context = s.contexts[0], [master, melody, rhythm] = context.gains;
   assert.equal(context.state, 'running'); assert.equal(s.requests.length, 2);
-  assert.equal(context.sources.length, 2); assert.ok(context.sources.every(source => source.loop && source.started === 10));
-  assert.equal(master.gain.value, .7); assert.equal(gentle.gain.value, 1); assert.equal(lively.gain.value, 0);
+  assert.equal(context.sources.length, 2); assert.ok(context.sources.every(source => source.loop && source.started === 10.03));
+  assert.equal(master.gain.value, .7); assert.equal(melody.gain.value, 1); assert.equal(rhythm.gain.value, 0);
   s.music.update(.1, true);
   assert.equal(s.button.dataset.musicMood, 'lively');
-  assert.deepEqual(gentle.gain.events.at(-1), ['ramp', 0, 11.4]);
-  assert.deepEqual(lively.gain.events.at(-1), ['ramp', 1, 11.4]);
-  const eventCount = lively.gain.events.length;
+  assert.equal(melody.gain.events.length, 0, 'rotation must not interrupt or fade the melody');
+  assert.deepEqual(rhythm.gain.events.at(-1), ['ramp', 1, 11.2]);
+  const eventCount = rhythm.gain.events.length;
   for (let frame = 0; frame < 120; frame++) s.music.update(1 / 60, true);
-  assert.equal(lively.gain.events.length, eventCount, 'one movement should not continually reschedule audio automation');
+  assert.equal(rhythm.gain.events.length, eventCount, 'one movement should not continually reschedule audio automation');
   s.music.update(.6, false); assert.equal(s.button.dataset.musicMood, 'lively');
-  s.music.update(.2, false); assert.equal(s.button.dataset.musicMood, 'gentle');
+  s.music.update(.2, false); assert.equal(s.button.dataset.musicMood, 'melody');
+  assert.equal(melody.gain.value, 1); assert.equal(melody.gain.events.length, 0);
+  assert.deepEqual(rhythm.gain.events.at(-1), ['ramp', 0, 11.2]);
   s.click(); s.runTimers(); assert.equal(context.state, 'suspended');
   for (let i = 0; i < 12; i++) { s.click(); await s.flush(); s.click(); s.runTimers(); }
   assert.equal(s.requests.length, 2); assert.equal(s.contexts.length, 1); assert.equal(context.sources.length, 2);
@@ -139,6 +141,6 @@ test('load and playback failures remain retryable without duplicating sources', 
   s.click(); await s.flush(); assert.equal(s.button['aria-pressed'], 'false');
   s.contexts[0].resume = resume;
   s.click(); await s.flush(); assert.equal(s.contexts[0].state, 'running');
-  assert.equal(s.contexts[0].sources.length, 2); s.music.resetMotion(); assert.equal(s.button.dataset.musicMood, 'gentle');
+  assert.equal(s.contexts[0].sources.length, 2); s.music.resetMotion(); assert.equal(s.button.dataset.musicMood, 'melody');
   s.music.dispose();
 });

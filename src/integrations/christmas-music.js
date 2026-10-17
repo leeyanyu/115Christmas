@@ -1,4 +1,5 @@
-// Decode and reuse two looping recordings only after an explicit music tap.
+// Decode two synchronized stems only after an explicit music tap. The melody
+// always continues; rotation fades in accompaniment without changing tempo.
 // Gain nodes also work on iOS, where media-element volume is not adjustable.
 export function createChristmasMusic({ button, note, urls,
   createContext = () => new (window.AudioContext || window.webkitAudioContext)(),
@@ -6,7 +7,7 @@ export function createChristmasMusic({ button, note, urls,
   schedule = setTimeout, unschedule = clearTimeout }) {
   let context, master, layers, preparing, pauseTimer;
   let enabled = false, listening = false, away = false, disposed = false, ready = false;
-  let generation = 0, hold = 0, mood = 'gentle';
+  let generation = 0, hold = 0, mood = 'melody';
   const abort = new AbortController();
   const visible = () => !doc.hidden && !away;
   function sync(message) {
@@ -19,7 +20,7 @@ export function createChristmasMusic({ button, note, urls,
     button.dataset.musicMood = enabled && ready ? mood : 'off';
     note.textContent = message || (paused ? '聖誕音樂暫停中，結束麥克風或回到頁面後繼續。'
       : loading ? '正在準備聖誕旋律，可再次點音符取消。'
-        : enabled ? '聖誕音樂已開啟，旋轉時更歡樂，停下後回到輕柔旋律。' : '點音符，聽見聖誕旋律。');
+        : enabled ? '聖誕音樂已開啟，旋轉時加入鼓點與伴奏，停下後保留主旋律。' : '點音符，聽見聖誕旋律。');
   }
   function ramp(parameter, value, seconds) {
     const now = context.currentTime;
@@ -29,7 +30,7 @@ export function createChristmasMusic({ button, note, urls,
   }
   function mix() {
     if (!ready) return;
-    layers.forEach((layer, index) => ramp(layer.gain.gain, Number((mood === 'lively') === Boolean(index)), 1.4));
+    ramp(layers[1].gain.gain, Number(mood === 'lively'), 1.2);
   }
   function setMood(next) {
     if (next === mood) return;
@@ -55,11 +56,11 @@ export function createChristmasMusic({ button, note, urls,
       layers = buffers.map((buffer, index) => {
         const source = context.createBufferSource(), gain = context.createGain();
         source.buffer = buffer; source.loop = true;
-        gain.gain.value = Number((mood === 'lively') === Boolean(index));
+        gain.gain.value = index === 0 ? 1 : Number(mood === 'lively');
         source.connect(gain); gain.connect(master);
         return { source, gain };
       });
-      const start = context.currentTime;
+      const start = context.currentTime + .03;
       layers.forEach(layer => layer.source.start(start));
       ready = true;
     })();
@@ -111,9 +112,9 @@ export function createChristmasMusic({ button, note, urls,
     update(delta, turning) {
       if (disposed) return;
       hold = turning ? .75 : Math.max(0, hold - delta);
-      setMood(hold > 0 ? 'lively' : 'gentle');
+      setMood(hold > 0 ? 'lively' : 'melody');
     },
-    resetMotion() { hold = 0; setMood('gentle'); },
+    resetMotion() { hold = 0; setMood('melody'); },
     setListening(value) {
       if (disposed || listening === value) return;
       listening = value;

@@ -20,5 +20,7 @@ requires a user gesture, pauses other tracks, and pauses when the page hides.
 
 The approved arrangements are now connected to the tree through
 `src/integrations/christmas-music.js`. The runtime uses dedicated loop files in
-`/audio/`; these audition recordings remain independent. Music pauses during
+`/audio/`: the fast melody plays continuously, while rotation adds synchronized
+accompaniment. The slow arrangement is no longer used by the tree; these original
+audition recordings remain independent. Music pauses during
 microphone permission and listening so it cannot supply the singing energy.

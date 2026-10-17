@@ -77,11 +77,12 @@ def add(track, signal, when, volume, pan=0):
     track[start:start + length, 1] += signal[:length] * volume * np.sin(angle)
 
 
-def render(lively, loop=False):
+def render(lively, loop=False, separate=False):
     bpm = 132 if lively else 76
     beat = 60 / bpm
     length = 64 * beat
     track = np.zeros((round((length + 2) * RATE), 2), dtype=np.float64)
+    backing = np.zeros_like(track) if separate else track
     for bar, (notes, chord) in enumerate(zip(MELODY, CHORDS)):
         start = bar * 4 * beat + .12
         position = 0
@@ -97,52 +98,63 @@ def render(lively, loop=False):
                 when = start + (tick * .5 + (.06 if tick % 2 else 0)) * beat
                 if tick % 2 == 0:
                     bass = chord[0] - (12 if tick == 0 else 5)
-                    add(track, tone(bass, beat * .4, 'bass'), when, .14, -.1)
+                    add(backing, tone(bass, beat * .4, 'bass'), when, .14, -.1)
                 else:
                     for pitch in chord:
-                        add(track, tone(pitch + 12, beat * .27, 'piano'), when, .049, -.35)
+                        add(backing, tone(pitch + 12, beat * .27, 'piano'), when, .049, -.35)
                 # Quiet sleigh-bell shimmer, rather than a loud drum kit.
                 t = np.arange(round(.10 * RATE)) / RATE
                 shimmer = sum(np.sin(2 * np.pi * f * t) for f in [2860, 3691, 4517, 5743])
                 shimmer *= (1 - np.exp(-t / .0015)) * np.exp(-t / .019)
-                add(track, shimmer, when, .009 if tick % 2 else .014, .45)
+                add(backing, shimmer, when, .009 if tick % 2 else .014, .45)
             # A soft brush on beats two and four gives the spin a clear pulse.
             for offset in [1, 3]:
                 t = np.arange(round(.13 * RATE)) / RATE
                 noise = RNG.normal(0, 1, len(t))
                 brush = (noise - np.roll(noise, 1)) * np.exp(-t / .027) * (1 - np.exp(-t / .002))
-                add(track, brush, start + offset * beat, .012, .25)
+                add(backing, brush, start + offset * beat, .012, .25)
+            if separate:
+                # A small, round kick supports the dance without a hard hit.
+                t = np.arange(round(.18 * RATE)) / RATE
+                phase = 2 * np.pi * (62 * t + 58 * .025 * (1 - np.exp(-t / .025)))
+                kick = np.sin(phase) * np.exp(-t / .055) * (1 - np.exp(-t / .003))
+                for offset in [0, 2]:
+                    add(backing, kick, start + offset * beat, .10)
         else:
             for i, pitch in enumerate(chord):
-                add(track, tone(pitch, beat * 3.65, 'pad'), start, .022, [-.45, 0, .45][i])
+                add(backing, tone(pitch, beat * 3.65, 'pad'), start, .022, [-.45, 0, .45][i])
             for tick in range(8):
                 pitch = chord[[0, 1, 2, 1][tick % 4]] + 12
-                add(track, tone(pitch, beat * .45, 'piano'), start + tick * beat / 2, .042, -.3 if tick % 2 else .3)
-            add(track, tone(chord[0], beat * 1.5, 'bass'), start, .042, 0)
+                add(backing, tone(pitch, beat * .45, 'piano'), start + tick * beat / 2, .042, -.3 if tick % 2 else .3)
+            add(backing, tone(chord[0], beat * 1.5, 'bass'), start, .042, 0)
 
     # Short stereo reflections keep the melody distinct, with a little air.
-    dry = track.copy()
-    for seconds, gain in [(.079, .14), (.131, .105), (.229, .075), (.367, .045)]:
-        delay = round(seconds * RATE)
-        track[delay:] += dry[:-delay, ::-1] * gain
-    if loop:
-        # Remove the preview's leading silence, and carry the final note and
-        # room reflections into the next first bar instead of inserting a gap.
-        start = round(.12 * RATE)
-        frames = round(length * RATE)
-        body = track[start:start + frames].copy()
-        tail = track[start + frames:]
-        body[:len(tail)] += tail
-        track = body
-    rms = np.sqrt(np.mean(track ** 2))
+    tracks = [track, backing] if separate else [track]
+    for index, part in enumerate(tracks):
+        dry = part.copy()
+        for seconds, gain in [(.079, .14), (.131, .105), (.229, .075), (.367, .045)]:
+            delay = round(seconds * RATE)
+            part[delay:] += dry[:-delay, ::-1] * gain
+        if loop:
+            # Wrap each stem at exactly the same sample, including room tails.
+            start = round(.12 * RATE)
+            frames = round(length * RATE)
+            body = part[start:start + frames].copy()
+            tail = part[start + frames:]
+            body[:len(tail)] += tail
+            tracks[index] = body
+    combined = sum(tracks)
+    rms = np.sqrt(np.mean(combined ** 2))
     target_rms = .100 if lively else .058
-    track *= min(target_rms / rms, .82 / np.max(np.abs(track)))
-    if not loop:
-        fade_in = round(.08 * RATE)
-        fade_out = round(1.2 * RATE)
-        track[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
-        track[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None]
-    return track, beat
+    gain = min(target_rms / rms, .82 / np.max(np.abs(combined)))
+    for part in tracks:
+        part *= gain
+        if not loop:
+            fade_in = round(.08 * RATE)
+            fade_out = round(1.2 * RATE)
+            part[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
+            part[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None]
+    return (tracks if separate else tracks[0]), beat
 
 
 def export(name, samples, output=OUTPUT):
@@ -168,8 +180,8 @@ def main():
     if args.loops_only:
         output = OUTPUT.parent / 'audio'
         output.mkdir(parents=True, exist_ok=True)
-        for lively, name in [(False, 'gentle-loop'), (True, 'lively-loop')]:
-            samples, _ = render(lively, loop=True)
+        stems, _ = render(True, loop=True, separate=True)
+        for name, samples in zip(['melody-loop', 'rhythm-loop'], stems):
             export(name, samples, output)
         return
     OUTPUT.mkdir(parents=True, exist_ok=True)
