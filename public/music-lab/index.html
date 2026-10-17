@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071421">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='51' font-size='56' fill='%23EACB94'%3E%E2%99%AB%3C/text%3E%3C/svg%3E">
+  <title>一起挑選聖誕聲音｜GJ Christmas 2026</title>
+  <link rel="stylesheet" href="./lab.css">
+  <script type="module" src="./lab.js"></script>
+</head>
+<body>
+<main>
+  <header><a class="brand" href="../">GJ <span>CHRISTMAS · 2026</span></a><span class="eyebrow">MUSIC ATELIER</span></header>
+  <section class="intro">
+    <p class="eyebrow">LISTEN · CHOOSE · PLAY</p>
+    <h1>先聽見，你喜歡的聖誕。</h1>
+    <p>水晶鋼琴要清楚，伴奏要有律動。<br>先聽兩段建議，再挑選你想要的樂器。</p>
+    <p class="notice">本頁只供試聽；選定前，不會套用到聖誕樹。</p>
+  </section>
+  <section class="examples" aria-labelledby="examples-title">
+    <h2 id="examples-title" class="section-title">① 先聽這兩段</h2>
+    <article class="example"><h3>水晶鋼琴單獨版</h3><p>透明、清楚的主旋律，沒有伴奏遮蓋。</p>
+      <audio controls preload="none" aria-label="水晶鋼琴 A 單獨試聽"><source src="./audio/crystal-clear.mp3" type="audio/mpeg"></audio>
+      <a href="./audio/crystal-clear.mp3" download>下載鋼琴試聽 MP3 ↗</a>
+    </article>
+    <article class="example"><h3>活潑節奏組合</h3><p>水晶鋼琴＋電子鼓＋節奏鋼琴＋低音＋鈴鼓。沒有小號。</p>
+      <audio controls preload="none" aria-label="活潑節奏建議組合試聽"><source src="./audio/happy-example.mp3" type="audio/mpeg"></audio>
+      <a href="./audio/happy-example.mp3" download>下載組合試聽 MP3 ↗</a>
+    </article>
+  </section>
+  <section aria-labelledby="lead-title" class="instruments">
+    <h2 id="lead-title" class="section-title">② 選一種水晶鋼琴</h2>
+    <p class="section-note">三種音色以相近音量呈現。點「單聽」直接比較；勾選的鋼琴會成為組合主旋律。</p>
+    <div id="lead-tracks" class="lead-grid" role="radiogroup" aria-label="水晶鋼琴音色"></div>
+  </section>
+  <section aria-labelledby="backing-title" class="instruments">
+    <h2 id="backing-title" class="section-title">③ 加入喜歡的節奏</h2>
+    <p class="section-note">可單獨試聽每件樂器，也可勾選、調整音量後一起聽。小號預設關閉。</p>
+    <div id="backing-tracks" class="backing-grid"></div>
+  </section>
+  <section class="selection" aria-labelledby="selection-title">
+    <h2 id="selection-title" class="section-title">④ 留下你的組合</h2>
+    <p>選好後複製文字貼回對話，確認音色與配器後，再放進網站。</p>
+    <button id="copy-choice" type="button" class="secondary">複製我的選擇</button>
+    <textarea id="choice-text" rows="5" readonly aria-label="目前選擇，可複製貼回對話"></textarea>
+    <p id="copy-status" class="section-note" role="status"></p>
+  </section>
+  <footer><p>每段約 15 秒，132 BPM，同一旋律，方便比較。混音試聽會循環播放。</p>
+    <p>本頁為自製合成器樂試聽，非真實鋼琴或商業錄音。<br>旋律：James Lord Pierpont〈Jingle Bells〉（1857，公有領域）。</p>
+    <a href="../">← 回到聖誕樹</a>
+  </footer>
+</main>
+<aside class="transport" aria-label="播放我的樂器組合">
+  <div class="transport-inner">
+    <div class="play-actions"><button id="play-mix" type="button" disabled>▶ 播放我的組合</button><button id="pause-mix" type="button" class="secondary" disabled>暫停</button><button id="reset-mix" type="button" class="text-button" disabled>還原建議</button></div>
+    <label class="master">總音量 <input id="master-volume" type="range" min="0" max="100" step="5" value="80" aria-label="混音總音量"><output id="master-output">80%</output></label>
+    <p id="mix-status" role="status" aria-live="polite">正在準備樂器選單；上方兩段可直接試聽。</p>
+  </div>
+</aside>
+</body>
+</html>

@@ -1,0 +1,78 @@
+{
+  "bpm": 132,
+  "seconds": 14.54546485260771,
+  "tracks": [
+    {
+      "id": "crystal-clear",
+      "label": "水晶鋼琴 A・透明",
+      "description": "清楚的琴音與少量晶亮泛音。",
+      "family": "lead",
+      "file": "audio/crystal-clear.mp3",
+      "volume": 100,
+      "enabled": false
+    },
+    {
+      "id": "crystal-round",
+      "label": "水晶鋼琴 B・圓潤",
+      "description": "保留水晶感，起音更柔和。",
+      "family": "lead",
+      "file": "audio/crystal-round.mp3",
+      "volume": 100,
+      "enabled": false
+    },
+    {
+      "id": "crystal-bright",
+      "label": "水晶鋼琴 C・明亮",
+      "description": "更閃亮的琴音，適合比較亮度。",
+      "family": "lead",
+      "file": "audio/crystal-bright.mp3",
+      "volume": 100,
+      "enabled": false
+    },
+    {
+      "id": "electronic-drums",
+      "label": "電子鼓",
+      "description": "四拍大鼓、小鼓與踩鈸，建立活潑節奏。",
+      "family": "backing",
+      "file": "audio/electronic-drums.mp3",
+      "volume": 85,
+      "enabled": true
+    },
+    {
+      "id": "piano-rhythm",
+      "label": "節奏鋼琴",
+      "description": "短促的反拍和弦，讓音樂有彈跳感。",
+      "family": "backing",
+      "file": "audio/piano-rhythm.mp3",
+      "volume": 70,
+      "enabled": true
+    },
+    {
+      "id": "bass",
+      "label": "彈跳低音",
+      "description": "支撐律動，保留手機較容易聽見的中低頻。",
+      "family": "backing",
+      "file": "audio/bass.mp3",
+      "volume": 65,
+      "enabled": true
+    },
+    {
+      "id": "sleigh-bells",
+      "label": "聖誕鈴鼓",
+      "description": "輕巧的鈴聲，增加聖誕氣氛。",
+      "family": "backing",
+      "file": "audio/sleigh-bells.mp3",
+      "volume": 30,
+      "enabled": true
+    },
+    {
+      "id": "trumpet",
+      "label": "小號",
+      "description": "短句點綴，可自行決定是否加入。",
+      "family": "backing",
+      "file": "audio/trumpet.mp3",
+      "volume": 35,
+      "enabled": false
+    }
+  ]
+}
