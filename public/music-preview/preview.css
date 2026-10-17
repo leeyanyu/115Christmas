@@ -1,0 +1,48 @@
+:root { color-scheme: dark; font-family: Georgia, 'Noto Serif TC', 'Songti TC', serif; background: #071421; color: #e4d1a5; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100svh; background: radial-gradient(ellipse at 76% 15%, #19323d70, transparent 55%), radial-gradient(ellipse at 12% 70%, #28324c50, transparent 60%), #071421; }
+main { width: min(920px, 100% - 48px); margin: auto; padding-bottom: max(44px, env(safe-area-inset-bottom)); }
+a { color: inherit; text-underline-offset: 5px; }
+a:hover { color: #fff1cc; }
+a:focus-visible, audio:focus-visible { outline: 2px solid #eacb94; outline-offset: 5px; border-radius: 8px; }
+header { min-height: 104px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #d8bb7b30; }
+.brand { font-size: 38px; text-decoration: none; white-space: nowrap; }
+.brand span { font: 10px/1.6 system-ui, sans-serif; letter-spacing: 3px; padding-left: 10px; }
+.eyebrow { font: 10px/1.6 system-ui, sans-serif; letter-spacing: 2.4px; color: #b4b6b2; }
+.intro { text-align: center; padding: 42px 0 32px; }
+.star { display: inline-block; font-size: 36px; color: #eacb94; }
+h1 { font-size: clamp(23px, 4.8vw, 34px); font-weight: 400; letter-spacing: 2px; line-height: 1.6; margin: 12px 0; }
+p { font-size: 14px; color: #b5c0c2; line-height: 1.9; }
+.tracks { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.track { border: 1px solid #d8bb7b36; border-radius: 16px; padding: 26px; background: #c7ba8d05; }
+.featured { grid-column: 1 / -1; border-color: #d8bb7b65; }
+.track-heading { display: flex; align-items: center; gap: 18px; }
+.number { font-size: 28px; color: #cbb582; }
+.track-heading .eyebrow { margin: 0 0 4px; font-size: 9px; letter-spacing: 1.8px; }
+h2 { font-size: 22px; font-weight: 400; margin: 0; letter-spacing: 1.5px; }
+.tag { margin-left: auto; border: 1px solid #d8bb7b55; padding: 5px 10px; border-radius: 20px; font-size: 11px; white-space: nowrap; }
+audio { display: block; width: 100%; margin: 20px 0 14px; height: 44px; }
+.track-footer { display: flex; justify-content: space-between; gap: 12px; font: 11px/1.8 system-ui, sans-serif; color: #8e9a9f; }
+.download { font-size: 11px; color: #c5b58f; }
+.playback-status { min-height: 28px; text-align: center; font-size: 12px; margin: 20px 0 0; }
+footer { text-align: center; padding-top: 10px; }
+footer p { font-size: 12px; }
+.credits { font-size: 10px; opacity: .7; margin-top: 24px; }
+.back { display: inline-block; margin-top: 18px; font-size: 13px; text-decoration: none; letter-spacing: 1px; }
+@media (max-width: 600px) {
+  main { width: calc(100% - 36px); }
+  header { min-height: 84px; gap: 10px; }
+  .brand { font-size: 32px; }
+  .brand span { font-size: 8px; letter-spacing: 1.6px; padding-left: 6px; }
+  header > .eyebrow { font-size: 8px; letter-spacing: 1.3px; }
+  .intro { padding-top: 30px; }
+  .intro p { font-size: 12px; }
+  .tracks { grid-template-columns: 1fr; gap: 16px; }
+  .track { padding: 20px 18px; }
+  .track-heading { gap: 12px; }
+  .track-heading .eyebrow { font-size: 8px; letter-spacing: 1.1px; }
+  h2 { font-size: 20px; }
+  .tag { font-size: 10px; padding: 4px 8px; }
+  .number { font-size: 25px; }
+  p { font-size: 13px; }
+}
