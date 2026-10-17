@@ -17,6 +17,7 @@ import { createHolidayVisitors } from './holiday-visitors.js';
 import { createTreeGifts } from './tree-gifts.js';
 import { createCampfireParty } from './campfire-party.js';
 import { createTreeTheme } from './tree-theme.js';
+import { createHiddenGoodness } from './hidden-goodness.js';
 import { createContentRoot } from '../integrations/content.js';
 
 export function createWorld(canvas, onComplete, onStageStart, onRotation = () => {}) {
@@ -61,6 +62,13 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     }
   } });
   const treeTheme = createTreeTheme(tree);
+  const hiddenGoodness = createHiddenGoodness({ tree, canvas, onFound: ({ label, count }) => {
+    const message = count === 3 ? '三好格致：好兒女、好學生、好國民。三份祝福，都化成天使了 ✧'
+      : `你找到「${label}」的小天使了！三好祝福 ${count} / 3 ✧`;
+    document.querySelector('#status').textContent = count === 3 ? '再次喚醒聖誕樹，就能重新尋找三好祝福 ✧'
+      : '再放大、輕輕轉動，尋找枝葉間的另一份三好祝福 ✧';
+    gratitudePrompt.announce(message);
+  } });
   contentRoot.add(tree.root);
   const ribbons = createRibbons(() => {
     const rect = canvas.getBoundingClientRect();
@@ -78,6 +86,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
   awakening.start(0);
   const motes = createTreeMotes(scene);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const guideDialog = document.querySelector('#interaction-guide');
   const gratitudePrompt = createGratitudePrompt(document.querySelector('#gratitude'), reducedMotion);
   const greeting = createTreeGreeting({ canvas, camera, tree, element: document.querySelector('#reveal') });
   let celebration, campfire;
@@ -166,6 +175,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     treeTheme.update(delta, reducedMotion.matches);
     visitors.update(delta, camera, stage.isSettled, reducedMotion.matches);
     gifts.update(delta, stage.isSettled, reducedMotion.matches);
+    hiddenGoodness.update(delta, camera, stage.isSettled && !celebration.isActive && !campfire.isActive && !guideDialog?.open, reducedMotion.matches, stage.zoomRatio);
     if (stage.isSettled) {
       gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
       gratitudePrompt.update(delta);
@@ -178,7 +188,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     setTheme: theme => { treeTheme.set(theme); if (theme === 'snow') interaction.snowfall(); },
     addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
     setVoiceLevel: value => gratitude.setVoiceLevel(value),
-    awaken: () => { campfire.reset(); gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { hiddenGoodness.reset(); campfire.reset(); gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -193,6 +203,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
       campfire.dispose();
       visitors.dispose();
       gifts.dispose();
+      hiddenGoodness.dispose();
       treeTheme.dispose();
       zoomOrbit.dispose();
       controls.dispose();

@@ -13,9 +13,11 @@ test('zoom starts after the opening; limits, resize ratio and replay preserve fr
   stage.start(0); assert.equal(controls.enabled, false); assert.equal(controls.enableZoom, false);
   stage.update(4.2, false); assert.equal(controls.enabled, true); assert.equal(controls.enableZoom, true);
   const original = camera.position.distanceTo(controls.target);
-  assert.ok(controls.minDistance >= 3.8); assert.ok(controls.minDistance < original); assert.ok(controls.maxDistance > original);
+  assert.equal(controls.minDistance, 2.6); assert.ok(controls.minDistance < original); assert.ok(controls.maxDistance > original);
+  assert.ok(Math.abs(stage.zoomRatio - 1) < 1e-8);
   const direction = camera.position.clone().sub(controls.target).normalize();
   camera.position.copy(controls.target).addScaledVector(direction, original * .6);
+  assert.ok(Math.abs(stage.zoomRatio - 1 / .6) < 1e-8);
   globalThis.innerWidth = 390; globalThis.innerHeight = 844; camera.aspect = 390 / 844;
   stage.resize();
   assert.ok(Math.abs(camera.position.distanceTo(controls.target) / (controls.maxDistance / 1.15) - .6) < 1e-8);

@@ -26,7 +26,9 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
   }
 
   function setZoomRange(distance) {
-    controls.minDistance = Math.max(3.8, distance * .42);
+    // Let visitors search inside the boughs while keeping the orbit outside
+    // the tree. Initial framing and the far-distance limit stay the same.
+    controls.minDistance = 2.6;
     controls.maxDistance = distance * 1.15;
     referenceDistance = distance;
   }
@@ -34,6 +36,7 @@ export function createStage(canvas, camera, controls, tree, onStart, onComplete)
   return {
     get isMoving() { return state === 'moving'; },
     get isSettled() { return state === 'settled'; },
+    get zoomRatio() { return referenceDistance ? referenceDistance / camera.position.distanceTo(controls.target) : 1; },
     start(time) {
       state = 'moving';
       startedAt = time;
