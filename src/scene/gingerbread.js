@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createHolidayCharacter } from './holiday-character.js';
+import { createHolidayCharacter, characterScale } from './holiday-character.js';
 
 export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true, homeAngle, homeHeight = 1.95, linger = 1.1, entrySide = -1 } = {}) {
   const initialEntrySide = entrySide;
@@ -56,7 +56,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
     return radius;
   }
   function anchors(camera) {
-    size = camera.aspect > 1.1 ? .76 : 1;
+    size = characterScale(camera.aspect);
     const radius = branchRadius(homeHeight);
     home.set(back.x * radius, homeHeight, back.y * radius);
     landing.set(back.x * routeRadius, .43 * size, back.y * routeRadius);
@@ -130,7 +130,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
     root,
     drop,
     landingScreenX(camera) {
-      vertex.set(back.x * routeRadius, .43 * (camera.aspect > 1.1 ? .76 : 1), back.y * routeRadius);
+      vertex.set(back.x * routeRadius, .43 * characterScale(camera.aspect), back.y * routeRadius);
       tree.root.localToWorld(vertex); return vertex.project(camera).x;
     },
     arrive({ sameSide = false, side = entrySide } = {}) {

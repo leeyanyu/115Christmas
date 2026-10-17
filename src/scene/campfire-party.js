@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { createHolidayCharacter } from './holiday-character.js';
+import { createHolidayCharacter, characterScale } from './holiday-character.js';
 
 const duration = 11;
 const ease = t => t * t * t * (t * (t * 6 - 15) + 10);
 
-export function createCampfireParty({ tree, canvas, controls, capacity = 4, random = Math.random,
+export function createCampfireParty({ tree, canvas, controls, random = Math.random,
   canStart = () => true, onStart = () => {}, onEnd = () => {}, onSpark = () => {},
   activityTarget = window, visibilityTarget = document }) {
   const root = new THREE.Group(); root.name = 'campfire-party'; root.visible = false;
   tree.root.add(root);
   const warmth = new THREE.PointLight(0xffcb8b, 0, 5, 2); warmth.name = 'campfire-warmth'; warmth.position.y = .7; root.add(warmth);
   const point = new THREE.Vector3(), localCamera = new THREE.Vector3(), rotation = new THREE.Matrix4();
-  const count = capacity >= 4 ? 4 : 2;
+  const count = 8;
   const guests = Array.from({ length: count }, (_, index) => {
     const model = createHolidayCharacter(index % 2 ? 'candy-cane' : 'gingerbread'); model.dress(index);
     model.root.name = `campfire-guest-${index + 1}`; model.root.userData.campfireGuest = true; root.add(model.root);
@@ -21,7 +21,7 @@ export function createCampfireParty({ tree, canvas, controls, capacity = 4, rand
     model.body.computeBoundingBox(); const bounds = model.body.boundingBox.clone(); bounds.min.y = Math.min(bounds.min.y, -.43);
     const support = [];
     for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) support.push(new THREE.Vector3(x, y, z));
-    return { model, materials, support, offset: (index % 2 ? .72 : -.72) + (index >= 2 ? Math.PI : 0), cheer: 0 };
+    return { model, materials, support, offset: (index - .5) * Math.PI * 2 / count, cheer: 0 };
   });
   let active = false, stopping = false, elapsed = 0, stopTime = 0, held = false, suspended = 0;
   let heading = 0, startAngle = 0, nextSpark = 1, sparkCooldown = 0, wait = 18 + random() * 14;
@@ -45,7 +45,7 @@ export function createCampfireParty({ tree, canvas, controls, capacity = 4, rand
 
   function fits(camera) {
     // Wait when zoomed in; the surprise must never pull the camera away.
-    const radius = camera.aspect < 1.1 ? 2.35 : 2.45;
+    const radius = camera.aspect > 1.1 ? 2.7 : 2.35;
     tree.root.updateWorldMatrix(true, false); camera.updateMatrixWorld();
     for (let i = 0; i < 8; i++) {
       point.set(Math.sin(i * Math.PI / 4) * radius, .4, Math.cos(i * Math.PI / 4) * radius);
@@ -89,24 +89,26 @@ export function createCampfireParty({ tree, canvas, controls, capacity = 4, rand
       const strength = Math.max(0, envelope);
       warmth.intensity = strength * (1.15 + .12 * Math.sin(elapsed * 2));
       tree.root.updateWorldMatrix(true, false); localCamera.copy(camera.position); tree.root.worldToLocal(localCamera);
-      const size = (camera.aspect < 1.1 ? .55 : .58) * (.92 + .08 * strength);
-      const radius = camera.aspect < 1.1 ? 2.08 : 2.12;
+      const size = characterScale(camera.aspect);
+      const width = camera.aspect > 1.1 ? 2.3 : 1.84, depth = camera.aspect > 1.1 ? 2.3 : 2.35;
       const turn = tree.root.rotation.y - startAngle;
       for (let index = 0; index < guests.length; index++) {
         const guest = guests[index], dancer = guest.model.root;
-        const angle = heading + guest.offset + ease(elapsed / duration) * Math.PI * 1.8 - turn;
+        const angle = guest.offset + ease(elapsed / duration) * Math.PI * 1.8;
+        const facing = heading - turn;
         const beat = elapsed * Math.PI * 2 / .7 + index * 1.1;
         const hop = (1 - Math.cos(beat)) * .5;
         guest.cheer = Math.max(0, guest.cheer - delta);
         const cheer = Math.sin(guest.cheer / .65 * Math.PI) * .13;
-        const distance = radius + Math.sin(beat) * .012;
-        dancer.position.set(Math.sin(angle) * distance, 0, Math.cos(angle) * distance);
+        const side = Math.sin(angle) * width, forward = Math.cos(angle) * depth;
+        dancer.position.set(Math.cos(facing) * side + Math.sin(facing) * forward, 0, Math.cos(facing) * forward - Math.sin(facing) * side);
         dancer.rotation.set(0, Math.atan2(localCamera.x - dancer.position.x, localCamera.z - dancer.position.z) + Math.sin(beat) * .13, Math.sin(beat) * .11);
         dancer.scale.set(size * (1 - hop * .025), size * (1 + hop * .035), size);
         rotation.makeRotationFromEuler(dancer.rotation);
         let bottom = Infinity;
         for (const sample of guest.support) bottom = Math.min(bottom, point.copy(sample).multiply(dancer.scale).applyMatrix4(rotation).y);
-        dancer.position.y = .02 - bottom + hop * .075 + cheer;
+        // The full-size phone guests step at pedestal height along its edge.
+        dancer.position.y = .11 - bottom + hop * .075 + cheer;
         guest.materials.forEach(material => { material.opacity = strength; });
       }
       sparkCooldown = Math.max(0, sparkCooldown - delta);

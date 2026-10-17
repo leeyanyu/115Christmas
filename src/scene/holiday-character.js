@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+export const characterScale = aspect => aspect > 1.1 ? .76 : 1;
+
 // View-facing diffuse fill belongs only to these materials. Global lights,
 // foliage shadows, and the tree's warm glow never need to change.
 export function characterMaterial(options) {

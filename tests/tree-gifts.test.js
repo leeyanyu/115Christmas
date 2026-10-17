@@ -77,9 +77,20 @@ test('tapped presents roll out of the frame once and stay gone until replay', ()
     assert.ok(gift.visible); assert.ok(gift.position.distanceTo(position) > .01); assert.ok(!gift.quaternion.equals(rotation));
     assert.ok(effect.hitTargets.includes(gift), 'a moving gift should still block clicks on the tree behind it');
     assert.ok(new THREE.Box3().setFromObject(gift).min.y >= .0799);
-    effect.update(2.3, true, false); assert.equal(gift.visible, false);
+    const pause = gift.position.clone(), pausedRotation = gift.quaternion.clone();
+    effect.update(.08, true, false);
+    assert.ok(gift.position.distanceTo(pause) < .00001, 'each roll needs a quiet pause');
+    assert.ok(gift.quaternion.angleTo(pausedRotation) < .00001);
+    effect.update(.14, true, false); assert.ok(gift.position.distanceTo(pause) > .01);
+    let time = .62;
+    while (gift.visible && time < 20) {
+      const previous = gift.position.clone(); effect.update(.02, true, false); time += .02;
+      assert.ok(gift.position.distanceTo(previous) / .02 < 2, 'gift launches across the scene too fast');
+      assert.ok(gift.position.y < .08 + gift.scale.x * 1.1, 'gift flies above the ground');
+    }
+    assert.equal(gift.visible, false); assert.ok(time > 1.5 && time < 20);
     assert.ok(!effect.hitTargets.includes(gift));
-    const screen = gift.getWorldPosition(new THREE.Vector3()).project(camera); assert.ok(Math.abs(screen.x) > 1.4);
+    const screen = gift.getWorldPosition(new THREE.Vector3()).project(camera); assert.ok(Math.abs(screen.x) > 1.1);
     effect.update(100, true, false); assert.equal(gift.visible, false);
     effect.reset(); effect.update(0, true, true); assert.equal(effect.targets.length, 3);
     assert.equal(effect.tap(gift, camera), true); assert.equal(gift.visible, false);
@@ -101,4 +112,16 @@ test('replay reuses gifts and reduced motion shows them at rest immediately', ()
     assert.equal(root.children.length, 3);
   }
   let disposed = 0; geometry.addEventListener('dispose', () => disposed++); effect.dispose(); assert.equal(disposed, 1);
+});
+
+test('a turning camera does not make a departing gift vanish inside the new view', () => {
+  const tree = createTree(), effect = createTreeGifts(tree), camera = new THREE.PerspectiveCamera(37, 1.5);
+  camera.position.set(0, 3, 10); camera.lookAt(0, 2, 0); camera.updateMatrixWorld();
+  effect.update(10, true, false); const gift = effect.targets[1]; effect.tap(gift, camera); effect.update(.4, true, false);
+  camera.position.set(10, 3, 0); camera.lookAt(0, 2, 0); camera.updateMatrixWorld();
+  for (let time = 0; gift.visible && time < 30; time += .1) effect.update(.1, true, false);
+  assert.equal(gift.visible, false);
+  const p = gift.getWorldPosition(new THREE.Vector3()).project(camera);
+  assert.ok(Math.abs(p.x) >= 1.1 || Math.abs(p.y) >= 1.1, 'gift disappeared while still inside the camera frame');
+  effect.dispose();
 });

@@ -96,8 +96,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const atmosphere = createRotationAtmosphere(canvas);
   const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: atmosphere.update });
   celebration = createTreeCelebration({ tree, canvas, controls, onStart: () => { campfire?.stop(); interaction.celebrate(); } });
-  const constrained = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 8) <= 4;
-  campfire = createCampfireParty({ tree, canvas, controls, capacity: constrained ? 2 : 4,
+  campfire = createCampfireParty({ tree, canvas, controls,
     canStart: camera => !gifts.isMoving && visitors.canGather(camera),
     onStart: () => {
       visitors.beginParty();
