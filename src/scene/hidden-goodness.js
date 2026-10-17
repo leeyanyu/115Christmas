@@ -10,7 +10,7 @@ const SIZE = .06, DWELL = .85;
 
 // Looking, rather than clicking, discovers these three secrets. Screen size,
 // deliberate zoom, face direction, leaf occlusion and dwell all have to agree.
-export function createHiddenGoodness({ tree, canvas, onFound = () => {} }) {
+export function createHiddenGoodness({ tree, canvas, onFound = () => {}, additionalOccluders = () => [] }) {
   const root = new THREE.Group(); root.name = 'hidden-three-goods'; tree.root.add(root);
   const art = createLittleAngels(THREE_GOODS.map(good => good.color));
   const foliage = tree.layers;
@@ -65,6 +65,7 @@ export function createHiddenGoodness({ tree, canvas, onFound = () => {} }) {
       view.copy(point).sub(camera.position).normalize();
       ray.set(camera.position, view); ray.far = distance - .002;
       hits.length = 0; ray.intersectObjects(occluders, true, hits);
+      ray.intersectObjects(additionalOccluders(), true, hits);
       if (hits.length) return false;
     }
     return true;

@@ -62,7 +62,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     }
   } });
   const treeTheme = createTreeTheme(tree);
-  const hiddenGoodness = createHiddenGoodness({ tree, canvas, onFound: ({ label, count }) => {
+  const hiddenGoodness = createHiddenGoodness({ tree, canvas, additionalOccluders: () => visitors.targets, onFound: ({ label, count }) => {
     const message = count === 3 ? '三好格致：好兒女、好學生、好國民。三份祝福，都化成天使了 ✧'
       : `你找到「${label}」的小天使了！三好祝福 ${count} / 3 ✧`;
     document.querySelector('#status').textContent = count === 3 ? '再次喚醒聖誕樹，就能重新尋找三好祝福 ✧'

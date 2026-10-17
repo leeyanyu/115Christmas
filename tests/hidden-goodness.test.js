@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import { createTree } from '../src/scene/tree.js';
 import { createHiddenGoodness, THREE_GOODS } from '../src/scene/hidden-goodness.js';
 
-function setup(width = 390, height = 760) {
+function setup(width = 390, height = 760, options = {}) {
   const tree = createTree(), events = [];
   const camera = new THREE.PerspectiveCamera(37, width / height, .1, 60);
-  const effect = createHiddenGoodness({ tree, canvas: { getBoundingClientRect: () => ({ width, height }) }, onFound: event => events.push(event) });
+  const effect = createHiddenGoodness({ tree, canvas: { getBoundingClientRect: () => ({ width, height }) }, onFound: event => events.push(event), ...options });
   const root = tree.root.getObjectByName('hidden-three-goods');
   function face(index, distance = 2.6) {
     const angle = THREE_GOODS[index].angle + tree.root.rotation.y;
@@ -105,4 +105,17 @@ test('motion preference, replay and disposal reuse a bounded set of actors and G
   s.effect.dispose(); s.effect.dispose();
   assert.equal(disposed, geometries.size + materials.size);
   assert.equal(s.tree.root.getObjectByName('hidden-three-goods'), undefined);
+});
+
+test('a passing holiday visitor can temporarily cover a secret without collecting it', () => {
+  let visitors = [];
+  const s = setup(390, 760, { additionalOccluders: () => visitors }); s.face(2);
+  const figure = s.root.children[2];
+  const visitor = new THREE.Mesh(new THREE.BoxGeometry(.25, .3, .25), new THREE.MeshBasicMaterial());
+  visitor.position.copy(figure.position).lerp(s.camera.position, .15);
+  s.tree.root.add(visitor); visitors = [visitor];
+  s.tick(2); assert.equal(s.effect.foundCount, 0, 'a foreground character must block automatic discovery');
+  visitor.removeFromParent(); visitors = [];
+  s.tick(1.1); assert.equal(s.effect.foundCount, 1);
+  visitor.geometry.dispose(); visitor.material.dispose(); s.effect.dispose();
 });
