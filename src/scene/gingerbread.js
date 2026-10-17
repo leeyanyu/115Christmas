@@ -1,52 +1,14 @@
 import * as THREE from 'three';
+import { createHolidayCharacter } from './holiday-character.js';
 
-export function createGingerbread(tree) {
-  const cookie = new THREE.MeshStandardMaterial({ color: 0xbe8653, roughness: .8 });
-  const icing = new THREE.MeshStandardMaterial({ color: 0xffedd0, roughness: .65 });
-  const pink = new THREE.MeshStandardMaterial({ color: 0xcc8990, roughness: .7 });
-  const ribbon = new THREE.MeshStandardMaterial({ color: 0xcc8990, roughness: .7 });
-  const sphere = new THREE.SphereGeometry(1, 24, 16);
-  const root = new THREE.Group(); root.name = 'hidden-gingerbread';
-  function ball(material, x, y, z, sx, sy = sx, sz = sx) {
-    const mesh = new THREE.Mesh(sphere, material); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); root.add(mesh); return mesh;
-  }
-  // One continuous cookie outline replaces the separate capsule joints.
-  const outline = new THREE.Shape();
-  outline.moveTo(0, .47);
-  outline.bezierCurveTo(.17, .47, .23, .29, .10, .19);
-  outline.bezierCurveTo(.13, .16, .16, .16, .19, .20);
-  outline.bezierCurveTo(.26, .29, .32, .31, .36, .25);
-  outline.bezierCurveTo(.42, .17, .31, .12, .22, .06);
-  outline.bezierCurveTo(.16, .02, .15, -.02, .16, -.10);
-  outline.bezierCurveTo(.17, -.17, .23, -.28, .19, -.35);
-  outline.bezierCurveTo(.16, -.42, .07, -.43, .035, -.35);
-  outline.bezierCurveTo(.01, -.29, .02, -.23, 0, -.22);
-  outline.bezierCurveTo(-.02, -.23, -.01, -.29, -.035, -.35);
-  outline.bezierCurveTo(-.07, -.43, -.16, -.42, -.19, -.35);
-  outline.bezierCurveTo(-.23, -.28, -.17, -.17, -.16, -.10);
-  outline.bezierCurveTo(-.15, -.02, -.16, .02, -.22, .06);
-  outline.bezierCurveTo(-.31, .12, -.42, .17, -.36, .25);
-  outline.bezierCurveTo(-.32, .31, -.26, .29, -.19, .20);
-  outline.bezierCurveTo(-.16, .16, -.13, .16, -.10, .19);
-  outline.bezierCurveTo(-.23, .29, -.17, .47, 0, .47);
-  outline.closePath();
-  const body = new THREE.ExtrudeGeometry(outline, { depth: .14, bevelEnabled: true, bevelSize: .03, bevelThickness: .035, bevelSegments: 5, curveSegments: 20, steps: 1 });
-  body.translate(0, 0, -.07);
-  root.add(new THREE.Mesh(body, cookie));
-  for (const side of [-1, 1]) {
-    ball(icing, side * .055, .33, .11, .017, .021, .012);
-    ball(pink, side * .085, .275, .109, .022, .013, .009);
-  }
-  const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.055, .275, .111), new THREE.Vector3(0, .22, .118), new THREE.Vector3(.055, .275, .111));
-  root.add(new THREE.Mesh(new THREE.TubeGeometry(smile, 20, .009, 8, false), icing));
-  ball(ribbon, -.035, .14, .115, .044, .026, .012);
-  ball(ribbon, .035, .14, .115, .044, .026, .012);
-  ball(ribbon, 0, .14, .125, .018);
-  ball(icing, 0, .04, .11, .019); ball(icing, 0, -.04, .11, .019);
+export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true, homeAngle, homeHeight = 1.95, linger = 1.1, entrySide = -1 } = {}) {
+  const initialEntrySide = entrySide;
+  const model = createHolidayCharacter(kind), { root, body } = model;
   tree.root.add(root);
   const home = new THREE.Vector3(.42, 1.95, -1.08), localCamera = new THREE.Vector3();
   const landing = new THREE.Vector3(.85, .51, -1.3), exit = new THREE.Vector3(), entry = new THREE.Vector3(), tangentPoint = new THREE.Vector3();
   const back = new THREE.Vector2(home.x, home.z).normalize(), routeRadius = 2.35;
+  if (homeAngle !== undefined) back.set(Math.sin(homeAngle), Math.cos(homeAngle));
   const bandHeight = .04, bandOffset = .4, foliage = new Float32Array(128);
   const vertex = new THREE.Vector3(), edge = new THREE.Vector3(), inverse = new THREE.Matrix4();
   const triangle = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -95,8 +57,8 @@ export function createGingerbread(tree) {
   }
   function anchors(camera) {
     size = camera.aspect > 1.1 ? .76 : 1;
-    const radius = branchRadius(1.95);
-    home.set(back.x * radius, 1.95, back.y * radius);
+    const radius = branchRadius(homeHeight);
+    home.set(back.x * radius, homeHeight, back.y * radius);
     landing.set(back.x * routeRadius, .43 * size, back.y * routeRadius);
   }
   function cling(y, progress) {
@@ -104,9 +66,11 @@ export function createGingerbread(tree) {
     root.position.set(back.x * radius, y, back.y * radius);
   }
   const ease = t => t * t * (3 - 2 * t);
-  const characters = [[0xbe8653, 0xcc8990], [0xa5714d, 0x8bb8a3], [0xc69761, 0xd8ba76]];
   let phase = 'hidden', seen = 0, elapsed = 0, cooldown = 0, character = 0, hops = 3, travelDuration = 2.7;
-  function dress() { cookie.color.setHex(characters[character][0]); ribbon.color.setHex(characters[character][1]); }
+  let departureSide = -entrySide;
+  let readyToPlay = false, reduced = false;
+  const fallStart = new THREE.Vector3();
+  function dress() { model.dress(character); }
   function screenPoint(camera, target, x) {
     camera.updateMatrixWorld();
     target.copy(landing); tree.root.localToWorld(target); target.project(camera);
@@ -124,7 +88,7 @@ export function createGingerbread(tree) {
   }
   function travel(camera, arriving) {
     const point = arriving ? entry : exit;
-    screenPoint(camera, point, arriving ? -1.55 : 1.55);
+    screenPoint(camera, point, (arriving ? entrySide : departureSide) * 1.55);
     const progress = Math.min(1, elapsed / travelDuration), hop = progress * hops;
     const part = progress === 1 ? 1 : hop % 1;
     const advance = progress === 1 ? 1 : (Math.floor(hop) + ease(part)) / hops;
@@ -153,14 +117,33 @@ export function createGingerbread(tree) {
     root.scale.set((1 - Math.sin(part * Math.PI) * .035) * size, (1 + Math.sin(part * Math.PI) * .06) * size, size);
     return progress === 1;
   }
-  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; dress(); root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
+  function drop() {
+    if (!readyToPlay || !root.visible || (phase !== 'hidden' && phase !== 'climbing')) return false;
+    if (reduced) return true;
+    fallStart.copy(root.position); phase = 'falling'; elapsed = seen = 0; return true;
+  }
+  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
   reset();
   return {
     get isPerforming() { return phase !== 'hidden'; },
+    get isAway() { return phase === 'away'; },
+    root,
+    drop,
+    landingScreenX(camera) {
+      vertex.set(back.x * routeRadius, .43 * (camera.aspect > 1.1 ? .76 : 1), back.y * routeRadius);
+      tree.root.localToWorld(vertex); return vertex.project(camera).x;
+    },
+    arrive({ sameSide = false, side = entrySide } = {}) {
+      entrySide = side; departureSide = sameSide ? side : -side;
+      character++; dress(); phase = 'entering'; elapsed = seen = cooldown = 0; root.visible = false;
+    },
+    hide() { phase = 'away'; root.visible = false; readyToPlay = false; },
     update(delta, camera, ready, reducedMotion) {
-      root.visible = ready && phase !== 'away';
+      readyToPlay = ready; reduced = reducedMotion;
+      root.visible = ready && phase !== 'away' && phase !== 'entering';
       if (!ready) return;
-      if (reducedMotion && phase !== 'hidden') { reset(); root.visible = true; }
+      if (phase === 'away' && !autoCycle) return;
+      if (reducedMotion && phase !== 'hidden' && phase !== 'away') { reset(); readyToPlay = true; root.visible = true; }
       elapsed += delta; cooldown = Math.max(0, cooldown - delta);
       tree.root.updateWorldMatrix(true, false); localCamera.copy(camera.position); tree.root.worldToLocal(localCamera);
       // A restrained turn toward the viewer keeps the smile visible from the
@@ -173,16 +156,18 @@ export function createGingerbread(tree) {
       const turn = Math.atan2(Math.sin(target - root.rotation.y), Math.cos(target - root.rotation.y));
       root.rotation.y += turn * (reducedMotion ? 1 : 1 - Math.exp(-delta * 12));
       anchors(camera);
-      const behind = -localCamera.z / Math.max(.01, Math.hypot(localCamera.x, localCamera.z)) > .8;
+      const behind = (localCamera.x * back.x + localCamera.z * back.y) / Math.max(.01, Math.hypot(localCamera.x, localCamera.z)) > .65;
       if (phase === 'hidden') {
         root.position.copy(home); root.scale.setScalar(size);
         seen = behind && !cooldown ? seen + delta : 0;
-        if (seen >= 1.1 && !reducedMotion) { phase = 'falling'; elapsed = 0; }
+        if (seen >= linger && !reducedMotion) drop();
       } else if (phase === 'falling') {
         root.scale.setScalar(size);
         const t = Math.min(1, elapsed / 1.1);
         root.rotation.z = -.15 + Math.sin(t * Math.PI) * .65;
-        cling(home.y + (landing.y - home.y) * t * t, t);
+        const y = THREE.MathUtils.lerp(fallStart.y, landing.y, t * t);
+        const radius = Math.max(branchRadius(y), THREE.MathUtils.lerp(Math.hypot(fallStart.x, fallStart.z), routeRadius, t));
+        root.position.set(back.x * radius, y, back.y * radius);
         if (t === 1) { phase = 'bouncing'; elapsed = 0; }
       } else if (phase === 'bouncing') {
         const t = Math.min(1, elapsed / .8);
@@ -190,12 +175,12 @@ export function createGingerbread(tree) {
         const squash = Math.exp(-t * 7) * .1;
         root.scale.set((1 + squash) * size, (1 - squash) * size, size);
         root.rotation.z = -.15 * (1 - t);
-        if (t === 1) { phase = 'hopping'; elapsed = 0; root.scale.setScalar(size); screenPoint(camera, exit, 1.55); plan(camera, exit); }
+        if (t === 1) { phase = 'hopping'; elapsed = 0; root.scale.setScalar(size); screenPoint(camera, exit, departureSide * 1.55); plan(camera, exit); }
       } else if (phase === 'hopping') {
         if (travel(camera, false)) { phase = 'away'; cooldown = 5; root.visible = false; }
-      } else if (phase === 'away' && !cooldown) {
-        character = (character + 1) % characters.length; dress();
-        screenPoint(camera, entry, -1.55); plan(camera, entry);
+      } else if (phase === 'entering' || (phase === 'away' && !cooldown && autoCycle)) {
+        if (phase === 'away') { character++; dress(); }
+        screenPoint(camera, entry, entrySide * 1.55); plan(camera, entry);
         root.position.copy(entry); root.scale.setScalar(size); phase = 'arriving'; elapsed = 0; root.visible = true;
       } else if (phase === 'arriving') {
         if (travel(camera, true)) { phase = 'climbing'; elapsed = 0; root.scale.setScalar(size); }
@@ -212,8 +197,7 @@ export function createGingerbread(tree) {
     reset,
     dispose() {
       tree.root.remove(root);
-      const geometries = new Set(); root.traverse(o => { if (o.geometry) geometries.add(o.geometry); });
-      geometries.forEach(g => g.dispose()); cookie.dispose(); icing.dispose(); pink.dispose(); ribbon.dispose();
+      model.dispose();
     },
   };
 }

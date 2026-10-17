@@ -3,7 +3,7 @@ import { createPlayTriggers } from './play-triggers.js';
 import { createPlayRewards } from './play-rewards.js';
 import { createInteractionParticles } from './interaction-particles.js';
 
-export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked, onReward = () => {}, onTreeTouch = () => {} }) {
+export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked, onReward = () => {}, onTreeTouch = () => {}, visitorTargets = () => [], onVisitorTap = () => false }) {
   const constrained = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 8) <= 4;
   const particles = createInteractionParticles(scene, constrained ? 48 : 96);
   const rewards = createPlayRewards(scene, constrained ? 96 : 192);
@@ -40,14 +40,22 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
     }
     hits.length = 0;
     raycaster.intersectObjects(targets, true, hits);
-    return hits[0];
+    raycaster.intersectObjects(visitorTargets(), true, hits);
+    hits.sort((a, b) => a.distance - b.distance);
+    const first = hits[0];
+    if (first) {
+      let object = first.object;
+      while (object && object !== tree.root && !object.userData.holidayCharacter) object = object.parent;
+      first.visitor = object?.userData.holidayCharacter ? object : null;
+    }
+    return first;
   }
   function down(event) {
     pointers.add(event.pointerId);
     if (pointers.size > 1) { gesture = null; triggers.cancelGesture(); return; }
     if (event.button !== 0 || blocked() || !event.isPrimary) return;
     const point = hit(event.clientX, event.clientY);
-    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, start: performance.now(), dragged: false, lastX: event.clientX, lastTime: performance.now(), height: point?.point.y ?? 2 };
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, start: performance.now(), dragged: false, lastX: event.clientX, lastTime: performance.now(), height: point?.point.y ?? 2, visitor: point?.visitor };
   }
   function move(event) {
     if (!gesture || event.pointerId !== gesture.id) return;
@@ -67,7 +75,9 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
     move(event);
     if (!gesture.dragged && performance.now() - gesture.start < 650 && !blocked()) {
       const point = hit(event.clientX, event.clientY);
-      if (point) {
+      if (point?.visitor) {
+        if (point.visitor === gesture.visitor) onVisitorTap(point.visitor);
+      } else if (point && !gesture.visitor) {
         particles.burst(point.point, reducedMotion.matches, lowQuality);
         onTreeTouch();
         if (point.object === star) triggers.tapStar();
