@@ -42,7 +42,8 @@ test('gingerbread leaves, a new character enters and climbs using the same geome
   effect.update(2.7, camera, true, false); assert.ok(Math.abs(ginger.position.y - .43) < .001);
   effect.update(1.3, camera, true, false); assert.ok(ginger.position.y > .43 && ginger.position.y < home.y);
   effect.update(1.3, camera, true, false);
-  assert.ok(ginger.position.equals(home)); assert.equal(ginger.children.length, count);
+  assert.equal(ginger.position.y, home.y); assert.equal(ginger.children.length, count);
+  assert.ok(Math.hypot(ginger.position.x, ginger.position.z) < 1.4);
   effect.reset(); assert.equal(ginger.visible, false);
   effect.dispose(); assert.equal(tree.root.getObjectByName('hidden-gingerbread'), undefined);
 });
@@ -73,6 +74,8 @@ test('gingerbread body stays outside branch volumes through a complete cycle', (
   const point = new THREE.Vector3(), local = new THREE.Vector3();
   const body = ginger.children[0], positions = body.geometry.attributes.position;
   for (let frame = 0; frame < 210; frame++) {
+    const angle = Math.PI + Math.sin(frame * .04) * 1.4;
+    camera.position.set(Math.sin(angle) * 10, 3, Math.cos(angle) * 10); camera.lookAt(0, 2, 0);
     effect.update(.1, camera, true, false);
     if (!ginger.visible) continue;
     body.updateWorldMatrix(true, false);
@@ -85,6 +88,31 @@ test('gingerbread body stays outside branch volumes through a complete cycle', (
         assert.ok(Math.hypot(local.x, local.z) >= radius - .005, `body penetrates branch at frame ${frame}`);
       }
     }
+  }
+  effect.dispose();
+  }
+});
+
+test('side views retain a solid cookie and a visible face without detaching from the tree', () => {
+  for (const aspect of [1.5, .5]) {
+  const tree = createTree(), camera = new THREE.PerspectiveCamera(37, aspect);
+  const effect = createGingerbread(tree), ginger = tree.root.getObjectByName('hidden-gingerbread');
+  const body = ginger.children[0].geometry; body.computeBoundingBox();
+  assert.ok(body.boundingBox.max.z - body.boundingBox.min.z >= .20);
+  const solid = new THREE.Mesh(body, ginger.children[0].material), ray = new THREE.Raycaster();
+  for (const direction of [new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)]) {
+    ray.set(direction.clone().multiplyScalar(2).add(new THREE.Vector3(0, .05, 0)), direction.clone().negate());
+    assert.ok(ray.intersectObject(solid).length > 0, 'cookie has an open side');
+  }
+  const normal = new THREE.Vector3(), view = new THREE.Vector3();
+  for (const angle of [-2.4, -1.94, 1.2, 1.4, 2.4, Math.PI]) {
+    camera.position.set(Math.sin(angle) * 10, 3, Math.cos(angle) * 10);
+    effect.update(1, camera, true, true);
+    ginger.updateWorldMatrix(true, true);
+    normal.set(0, 0, 1).transformDirection(ginger.matrixWorld);
+    view.copy(camera.position).sub(ginger.getWorldPosition(new THREE.Vector3())).normalize();
+    assert.ok(normal.dot(view) > .6, `face disappears at angle ${angle}`);
+    assert.ok(Math.hypot(ginger.position.x, ginger.position.z) < (aspect > 1.1 ? 1.4 : 1.5));
   }
   effect.dispose();
   }

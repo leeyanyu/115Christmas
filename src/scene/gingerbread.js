@@ -30,46 +30,68 @@ export function createGingerbread(tree) {
   outline.bezierCurveTo(-.16, .16, -.13, .16, -.10, .19);
   outline.bezierCurveTo(-.23, .29, -.17, .47, 0, .47);
   outline.closePath();
-  const body = new THREE.ExtrudeGeometry(outline, { depth: .07, bevelEnabled: true, bevelSize: .025, bevelThickness: .025, bevelSegments: 5, curveSegments: 20, steps: 1 });
-  body.translate(0, 0, -.035);
+  const body = new THREE.ExtrudeGeometry(outline, { depth: .14, bevelEnabled: true, bevelSize: .03, bevelThickness: .035, bevelSegments: 5, curveSegments: 20, steps: 1 });
+  body.translate(0, 0, -.07);
   root.add(new THREE.Mesh(body, cookie));
   for (const side of [-1, 1]) {
-    ball(icing, side * .055, .33, .065, .017, .021, .012);
-    ball(pink, side * .085, .275, .064, .022, .013, .009);
+    ball(icing, side * .055, .33, .11, .017, .021, .012);
+    ball(pink, side * .085, .275, .109, .022, .013, .009);
   }
-  const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.055, .275, .066), new THREE.Vector3(0, .22, .073), new THREE.Vector3(.055, .275, .066));
+  const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.055, .275, .111), new THREE.Vector3(0, .22, .118), new THREE.Vector3(.055, .275, .111));
   root.add(new THREE.Mesh(new THREE.TubeGeometry(smile, 20, .009, 8, false), icing));
-  ball(ribbon, -.035, .14, .07, .044, .026, .012);
-  ball(ribbon, .035, .14, .07, .044, .026, .012);
-  ball(ribbon, 0, .14, .08, .018);
-  ball(icing, 0, .04, .065, .019); ball(icing, 0, -.04, .065, .019);
+  ball(ribbon, -.035, .14, .115, .044, .026, .012);
+  ball(ribbon, .035, .14, .115, .044, .026, .012);
+  ball(ribbon, 0, .14, .125, .018);
+  ball(icing, 0, .04, .11, .019); ball(icing, 0, -.04, .11, .019);
   tree.root.add(root);
   const home = new THREE.Vector3(.42, 1.95, -1.08), localCamera = new THREE.Vector3();
   const landing = new THREE.Vector3(.85, .51, -1.3), exit = new THREE.Vector3(), entry = new THREE.Vector3(), tangentPoint = new THREE.Vector3();
   const back = new THREE.Vector2(home.x, home.z).normalize(), routeRadius = 2.35;
-  const foliage = [], vertex = new THREE.Vector3(), inverse = new THREE.Matrix4();
+  const bandHeight = .04, bandOffset = .4, foliage = new Float32Array(128);
+  const vertex = new THREE.Vector3(), edge = new THREE.Vector3(), inverse = new THREE.Matrix4();
+  const triangle = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const bandAt = y => Math.floor((y + bandOffset) / bandHeight);
+  function include(point) {
+    const band = bandAt(point.y), radius = Math.hypot(point.x, point.z);
+    for (const i of [band - 1, band]) if (i >= 0 && i < foliage.length) foliage[i] = Math.max(foliage[i], radius);
+  }
   tree.root.updateWorldMatrix(true, true); inverse.copy(tree.root.matrixWorld).invert();
-  // Conservative local-space branch envelopes are computed once, before the
-  // opening scales the layers. Character routes stay outside these envelopes.
+  // Clip triangle edges into height bands once. Using an entire branch's
+  // radius at every height left the climber visibly floating beside the tree.
   tree.layers.forEach(layer => layer.traverse(mesh => {
     if (!mesh.geometry) return;
-    const positions = mesh.geometry.attributes.position;
-    let low = Infinity, high = -Infinity, radius = 0;
-    for (let i = 0; i < positions.count; i++) {
-      vertex.fromBufferAttribute(positions, i).applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
-      low = Math.min(low, vertex.y); high = Math.max(high, vertex.y); radius = Math.max(radius, Math.hypot(vertex.x, vertex.z));
+    const positions = mesh.geometry.attributes.position, indices = mesh.geometry.index;
+    for (let i = 0; i < (indices?.count ?? positions.count); i += 3) {
+      for (let j = 0; j < 3; j++) triangle[j].fromBufferAttribute(positions, indices ? indices.getX(i + j) : i + j).applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
+      for (let j = 0; j < 3; j++) {
+        const a = triangle[j], b = triangle[(j + 1) % 3]; include(a);
+        if (Math.abs(a.y - b.y) < .000001) continue;
+        for (let band = bandAt(Math.min(a.y, b.y)) + 1; band <= bandAt(Math.max(a.y, b.y)); band++) {
+          const t = (band * bandHeight - bandOffset - a.y) / (b.y - a.y);
+          include(edge.lerpVectors(a, b, t));
+        }
+      }
     }
-    foliage.push({ low, high, radius });
   }));
+  const bodyPoints = [], unique = new Set(), rotation = new THREE.Matrix4();
+  for (let i = 0; i < body.attributes.position.count; i++) {
+    vertex.fromBufferAttribute(body.attributes.position, i);
+    const key = `${vertex.x.toFixed(5)},${vertex.y.toFixed(5)},${vertex.z.toFixed(5)}`;
+    if (!unique.has(key)) { unique.add(key); bodyPoints.push(vertex.clone()); }
+  }
   let size = 1;
   function branchRadius(y) {
     let radius = .2;
-    for (const branch of foliage) {
-      const distance = Math.max(branch.low - (y + .6 * size), y - .6 * size - branch.high, 0);
-      const weight = 1 - THREE.MathUtils.smoothstep(distance, 0, .28);
-      radius = Math.max(radius, .2 + (branch.radius - .2) * weight);
+    rotation.makeRotationFromEuler(root.rotation);
+    for (const point of bodyPoints) {
+      vertex.copy(point).applyMatrix4(rotation).multiplyScalar(size);
+      const band = bandAt(y + vertex.y);
+      const surface = Math.max(foliage[band] ?? 0, foliage[band - 1] ?? 0, foliage[band + 1] ?? 0) + .045;
+      const along = back.x * vertex.x + back.y * vertex.z;
+      const across = back.y * vertex.x - back.x * vertex.z;
+      radius = Math.max(radius, Math.sqrt(Math.max(0, surface * surface - across * across)) - along);
     }
-    return radius + .11 * size + .03;
+    return radius;
   }
   function anchors(camera) {
     size = camera.aspect > 1.1 ? .76 : 1;
@@ -80,7 +102,6 @@ export function createGingerbread(tree) {
   function cling(y, progress) {
     const radius = Math.max(branchRadius(y), THREE.MathUtils.lerp(Math.hypot(home.x, home.z), routeRadius, progress));
     root.position.set(back.x * radius, y, back.y * radius);
-    root.rotation.y = Math.atan2(back.x, back.y);
   }
   const ease = t => t * t * (3 - 2 * t);
   const characters = [[0xbe8653, 0xcc8990], [0xa5714d, 0x8bb8a3], [0xc69761, 0xd8ba76]];
@@ -128,7 +149,6 @@ export function createGingerbread(tree) {
     }
     const height = (camera.aspect > 1.1 ? .19 : .32 + Math.floor(Math.min(hop, 2)) * .06) * size;
     root.position.y += Math.sin(part * Math.PI) * height;
-    root.rotation.y = Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z);
     root.rotation.z = Math.sin(part * Math.PI) * (arriving ? .12 : -.15);
     root.scale.set((1 - Math.sin(part * Math.PI) * .035) * size, (1 + Math.sin(part * Math.PI) * .06) * size, size);
     return progress === 1;
@@ -140,10 +160,19 @@ export function createGingerbread(tree) {
     update(delta, camera, ready, reducedMotion) {
       root.visible = ready && phase !== 'away';
       if (!ready) return;
-      anchors(camera);
       if (reducedMotion && phase !== 'hidden') { reset(); root.visible = true; }
       elapsed += delta; cooldown = Math.max(0, cooldown - delta);
       tree.root.updateWorldMatrix(true, false); localCamera.copy(camera.position); tree.root.worldToLocal(localCamera);
+      // A restrained turn toward the viewer keeps the smile visible from the
+      // side, while retaining a genuine volume and its attachment to the tree.
+      const outward = Math.atan2(back.x, back.y);
+      const walking = ['bouncing', 'hopping', 'away', 'arriving'].includes(phase);
+      const toward = Math.atan2(localCamera.x - (walking ? root.position.x : back.x), localCamera.z - (walking ? root.position.z : back.y));
+      const offset = Math.atan2(Math.sin(toward - outward), Math.cos(toward - outward));
+      const target = outward + (walking ? offset : THREE.MathUtils.clamp(offset, -Math.PI / 3, Math.PI / 3));
+      const turn = Math.atan2(Math.sin(target - root.rotation.y), Math.cos(target - root.rotation.y));
+      root.rotation.y += turn * (reducedMotion ? 1 : 1 - Math.exp(-delta * 12));
+      anchors(camera);
       const behind = -localCamera.z / Math.max(.01, Math.hypot(localCamera.x, localCamera.z)) > .8;
       if (phase === 'hidden') {
         root.position.copy(home); root.scale.setScalar(size);
@@ -152,8 +181,8 @@ export function createGingerbread(tree) {
       } else if (phase === 'falling') {
         root.scale.setScalar(size);
         const t = Math.min(1, elapsed / 1.1);
-        cling(home.y + (landing.y - home.y) * t * t, t);
         root.rotation.z = -.15 + Math.sin(t * Math.PI) * .65;
+        cling(home.y + (landing.y - home.y) * t * t, t);
         if (t === 1) { phase = 'bouncing'; elapsed = 0; }
       } else if (phase === 'bouncing') {
         const t = Math.min(1, elapsed / .8);
@@ -175,9 +204,9 @@ export function createGingerbread(tree) {
         const progress = Math.min(1, elapsed / 2.6), step = progress * 5;
         const part = progress === 1 ? 1 : step % 1;
         const advance = progress === 1 ? 1 : (Math.floor(step) + ease(part)) / 5;
-        cling(THREE.MathUtils.lerp(landing.y, home.y, advance), 1 - advance);
         root.rotation.z = Math.sin(part * Math.PI) * (Math.floor(step) % 2 ? -.12 : .12);
-        if (progress === 1) { root.position.copy(home); phase = 'hidden'; seen = elapsed = 0; cooldown = 6; root.rotation.z = -.15; }
+        cling(THREE.MathUtils.lerp(landing.y, home.y, advance), 1 - advance);
+        if (progress === 1) { root.rotation.z = -.15; anchors(camera); root.position.copy(home); phase = 'hidden'; seen = elapsed = 0; cooldown = 6; }
       }
     },
     reset,
