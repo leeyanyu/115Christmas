@@ -19,16 +19,23 @@ test('tree themes restore the original foliage and leave ornaments untouched', (
   theme.dispose(); assert.ok(material.color.equals(original));
 });
 
-test('gingerbread is discovered at the back, falls, rests and reuses its model', () => {
+test('gingerbread bounces offscreen without shrinking, waits out of view and reuses its model', () => {
   const tree = createTree(), camera = new THREE.PerspectiveCamera(); camera.position.set(0, 3, 10);
   const effect = createGingerbread(tree), ginger = tree.root.getObjectByName('hidden-gingerbread');
   const home = ginger.position.clone(), count = ginger.children.length;
   effect.update(2, camera, true, false); assert.ok(ginger.position.equals(home));
   camera.position.z = -10;
+  camera.lookAt(0, 2, 0); camera.updateMatrixWorld();
   effect.update(1.2, camera, true, false); effect.update(.6, camera, true, false);
   assert.ok(ginger.position.y < home.y);
-  effect.update(.6, camera, true, false); assert.ok(Math.abs(ginger.position.y - .46) < .001);
-  effect.update(3, camera, true, false); effect.update(.7, camera, true, false);
+  effect.update(.6, camera, true, false); assert.ok(Math.abs(ginger.position.y - .51) < .001);
+  effect.update(.8, camera, true, false); effect.update(.45, camera, true, false);
+  assert.ok(ginger.position.y > .51); assert.ok(ginger.scale.x > .9);
+  effect.update(2.25, camera, true, false); assert.equal(ginger.visible, false);
+  const screen = ginger.getWorldPosition(new THREE.Vector3()).project(camera);
+  assert.ok(screen.x > 1.2); assert.ok(ginger.scale.x > .9);
+  effect.update(25, camera, true, false); assert.equal(ginger.visible, false);
+  camera.position.z = 10; effect.update(.1, camera, true, false);
   assert.ok(ginger.position.equals(home)); assert.equal(ginger.children.length, count);
   effect.reset(); assert.equal(ginger.visible, false);
   effect.dispose(); assert.equal(tree.root.getObjectByName('hidden-gingerbread'), undefined);
