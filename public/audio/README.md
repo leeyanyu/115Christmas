@@ -1,17 +1,24 @@
 # Christmas tree music
 
 Newly synthesized, instrumental arrangements of James Lord Pierpont's public-domain
-1857 melody *Jingle Bells*. These use the same arrangement and timbres as the
-approved `/music-preview/` auditions. No commercial recording or samples are used.
+1857 melody *Jingle Bells*. These build on the approved fast `/music-preview/`
+audition, with a softer lead and expanded rotation percussion. No commercial
+recording or samples are used.
 
 Both stems use the approved fast arrangement at **132 BPM**, with the same
 16-bar phrase and exact sample count:
 
-- `melody-loop.mp3`: the bell/piano melody, always audible when music is enabled.
-- `rhythm-brass-loop.mp3`: bass, offbeat chords, sleigh bells, brush, soft kick
-  and prominent trumpet responses (trumpet gain increased from .062 to .22,
-  approximately +11 dB, without renormalizing the melody);
-  audible only during rotation and its short release.
+- `melody-loop.mp3`: a rounded felt-piano lead one octave below the original
+  bright bell lead, with faint bell accents and a 1.4 kHz low-pass on the loop.
+- `rhythm-brass-loop.mp3`: bass, offbeat chords, sleigh bells, prominent trumpet
+  responses and electronic drums (four-on-the-floor kick, snare on two/four,
+  eighth-note closed hats); audible only during rotation and its short release.
+
+The accompaniment is mixed above the melody: target RMS .105 versus .046
+(about +7.2 dB). Both stems share a peak ceiling of .78 for the summed mix, so
+headroom adjustments preserve their relative levels. Electronic snare and hat
+high frequencies are controlled to avoid replacing the old lead's sharpness
+with harsh percussion. Original audition files remain unchanged.
 
 There is no slow arrangement in the tree's playback. Rotating does not restart,
 speed up, or fade the melody. Both stems start on the same audio-clock timestamp

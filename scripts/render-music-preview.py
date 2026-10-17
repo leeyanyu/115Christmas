@@ -44,7 +44,7 @@ CHORDS += CHORDS[:6] + [(43, 47, 50), (48, 52, 55)]
 
 def tone(pitch, duration, instrument):
     """Soft attacks, natural decays, and releases prevent clicks."""
-    tail = .22 if instrument == 'trumpet' else .8 if instrument in ('pad', 'piano') else 1.3
+    tail = .22 if instrument == 'trumpet' else .8 if instrument in ('pad', 'piano', 'felt') else 1.3
     t = np.arange(int((duration + tail) * RATE)) / RATE
     frequency = 440 * 2 ** ((pitch - 69) / 12)
     phase = 2 * np.pi * frequency * t
@@ -54,6 +54,10 @@ def tone(pitch, duration, instrument):
                   + .19 * np.sin(phase * 2.002) * np.exp(-t / .48)
                   + .045 * np.sin(phase * 3.98) * np.exp(-t / .22))
         attack = 1 - np.exp(-t / .006)
+    elif instrument == 'felt':
+        signal = (np.sin(phase) + .11 * np.sin(phase * 2) * np.exp(-t * 3)
+                  + .022 * np.sin(phase * 3) * np.exp(-t * 5)) * np.exp(-t / .7)
+        attack = 1 - np.exp(-t / .023)
     elif instrument == 'piano':
         signal = (np.sin(phase) + .26 * np.sin(phase * 2) * np.exp(-t * 2)
                   + .085 * np.sin(phase * 3) * np.exp(-t * 4)) * np.exp(-t / .65)
@@ -74,6 +78,25 @@ def tone(pitch, duration, instrument):
     return signal * attack * release
 
 
+def electronic_drum(kind):
+    """Electronic kick, rounded snare, and quiet closed hi-hat; no samples."""
+    duration = {'kick': .28, 'snare': .2, 'hat': .065}[kind]
+    t = np.arange(round(duration * RATE)) / RATE
+    if kind == 'kick':
+        phase = 2 * np.pi * (58 * t + 92 * .022 * (1 - np.exp(-t / .022)))
+        return (np.sin(phase) + .23 * np.sin(phase * 2)) * np.exp(-t / .075) * (1 - np.exp(-t / .0025))
+    if kind == 'snare':
+        noise = RNG.normal(0, 1, len(t))
+        frequencies = np.fft.rfftfreq(len(t), 1 / RATE)
+        # Round off the noisy top end instead of using a piercing white-noise hit.
+        band = (1 - np.exp(-(frequencies / 550) ** 2)) / np.sqrt(1 + (frequencies / 2800) ** 8)
+        noise = np.fft.irfft(np.fft.rfft(noise) * band, n=len(t))
+        body = .55 * np.sin(2 * np.pi * 180 * t) + .16 * np.sin(2 * np.pi * 330 * t)
+        return (body + noise * .6) * np.exp(-t / .045) * (1 - np.exp(-t / .003))
+    signal = sum(np.sin(2 * np.pi * frequency * t) for frequency in [2470, 3310, 4217]) / 3
+    return signal * np.exp(-t / .014) * (1 - np.exp(-t / .0015))
+
+
 def add(track, signal, when, volume, pan=0):
     start = round(when * RATE)
     length = min(len(signal), len(track) - start)
@@ -91,14 +114,21 @@ def render(lively, loop=False, separate=False):
     track = np.zeros((round((length + 2) * RATE), 2), dtype=np.float64)
     backing = np.zeros_like(track) if separate else track
     horns = np.zeros_like(track) if separate else None
+    drums = {kind: electronic_drum(kind) for kind in ['kick', 'snare', 'hat']} if separate else {}
     for bar, (notes, chord) in enumerate(zip(MELODY, CHORDS)):
         start = bar * 4 * beat + .12
         position = 0
         for note_index, (pitch, beats) in enumerate(notes):
             when = start + position * beat
             velocity = [1, .86, .93, .87][note_index % 4]
-            add(track, tone(pitch, beats * beat * .82, 'bell'), when, (.17 if lively else .115) * velocity, .08)
-            add(track, tone(pitch - 12, beats * beat * .8, 'piano'), when, (.11 if lively else .095) * velocity, -.12)
+            if separate:
+                # The website lead sits an octave lower with a slower felt-piano
+                # attack. Bells are a faint accent rather than the lead voice.
+                add(track, tone(pitch - 12, beats * beat * .82, 'felt'), when, .16 * velocity, -.08)
+                add(track, tone(pitch, beats * beat * .65, 'bell'), when, .018 * velocity, .1)
+            else:
+                add(track, tone(pitch, beats * beat * .82, 'bell'), when, (.17 if lively else .115) * velocity, .08)
+                add(track, tone(pitch - 12, beats * beat * .8, 'piano'), when, (.11 if lively else .095) * velocity, -.12)
             position += beats
         if lively:
             for tick in range(8):
@@ -115,19 +145,22 @@ def render(lively, loop=False, separate=False):
                 shimmer = sum(np.sin(2 * np.pi * f * t) for f in [2860, 3691, 4517, 5743])
                 shimmer *= (1 - np.exp(-t / .0015)) * np.exp(-t / .019)
                 add(backing, shimmer, when, .009 if tick % 2 else .014, .45)
+                if separate:
+                    add(backing, drums['hat'], when, .014 if tick % 2 else .01, .32)
             # A soft brush on beats two and four gives the spin a clear pulse.
             for offset in [1, 3]:
                 t = np.arange(round(.13 * RATE)) / RATE
                 noise = RNG.normal(0, 1, len(t))
                 brush = (noise - np.roll(noise, 1)) * np.exp(-t / .027) * (1 - np.exp(-t / .002))
-                add(backing, brush, start + offset * beat, .012, .25)
+                if not separate:
+                    add(backing, brush, start + offset * beat, .012, .25)
             if separate:
-                # A small, round kick supports the dance without a hard hit.
-                t = np.arange(round(.18 * RATE)) / RATE
-                phase = 2 * np.pi * (62 * t + 58 * .025 * (1 - np.exp(-t / .025)))
-                kick = np.sin(phase) * np.exp(-t / .055) * (1 - np.exp(-t / .003))
-                for offset in [0, 2]:
-                    add(backing, kick, start + offset * beat, .10)
+                # A clear electronic dance groove: four kicks per bar, snare on
+                # two/four, and eighth-note hats. All stay in the rotation stem.
+                for offset in [0, 1, 2, 3]:
+                    add(backing, drums['kick'], start + offset * beat, .18)
+                for offset in [1, 3]:
+                    add(backing, drums['snare'], start + offset * beat, .13, .08)
                 # Short trumpet responses add theatre only to the rotation stem.
                 phrase = [(2.5, chord[2] + 12, .35), (3, chord[1] + 12, .65)]
                 if bar % 2:
@@ -159,8 +192,23 @@ def render(lively, loop=False, separate=False):
             tail = part[start + frames:]
             body[:len(tail)] += tail
             tracks[index] = body
-    # Preserve the approved melody's level; add brass to its backing afterward.
-    combined = sum(tracks[:2]) if separate else tracks[0]
+    if separate:
+        tracks[1] += tracks.pop()
+        # Smooth the lead's remaining upper partials with a periodic low-pass;
+        # processing the wrapped loop avoids a filter seam at the first bar.
+        frequencies = np.fft.rfftfreq(len(tracks[0]), 1 / RATE)
+        response = 1 / np.sqrt(1 + (frequencies / 1400) ** 8)
+        tracks[0] = np.fft.irfft(np.fft.rfft(tracks[0], axis=0) * response[:, None], n=len(tracks[0]), axis=0)
+        # Rotation accompaniment is intentionally above the melody (+7.2 dB
+        # RMS). Shared peak headroom preserves this balance without clipping.
+        for part, target in zip(tracks, [.046, .105]):
+            part *= target / np.sqrt(np.mean(part ** 2))
+        peak = np.max(np.abs(tracks[0] + tracks[1]))
+        if peak > .78:
+            for part in tracks:
+                part *= .78 / peak
+        return tracks, beat
+    combined = tracks[0]
     rms = np.sqrt(np.mean(combined ** 2))
     target_rms = .100 if lively else .058
     gain = min(target_rms / rms, .82 / np.max(np.abs(combined)))
@@ -171,9 +219,7 @@ def render(lively, loop=False, separate=False):
             fade_out = round(1.2 * RATE)
             part[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
             part[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None]
-    if separate:
-        tracks[1] += tracks.pop()
-    return (tracks if separate else tracks[0]), beat
+    return tracks[0], beat
 
 
 def export(name, samples, output=OUTPUT):
