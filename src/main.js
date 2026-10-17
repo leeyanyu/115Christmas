@@ -4,13 +4,16 @@ import { createFullscreenControl } from './integrations/fullscreen.js';
 import { createVoiceLight } from './integrations/voice-light.js';
 import { createInteractionGuide } from './integrations/interaction-guide.js';
 import { createChristmasMusic } from './integrations/christmas-music.js';
+import { christmasMusicMix } from './integrations/christmas-music-mix.js';
 
 const button = document.querySelector('#awaken');
 const label = document.querySelector('#button-label');
 const status = document.querySelector('#status');
 const reveal = document.querySelector('#reveal');
 const music = createChristmasMusic({ button: document.querySelector('#music-toggle'), note: document.querySelector('#music-note'),
-  urls: ['melody-loop.mp3?v=2', 'rhythm-brass-loop.mp3?v=3'].map(file => `${import.meta.env.BASE_URL}audio/${file}`) });
+  urls: christmasMusicMix.tracks.map(track => `${import.meta.env.BASE_URL}${track.file}`),
+  levels: christmasMusicMix.tracks.map(track => track.level), masterVolume: christmasMusicMix.masterVolume,
+  compression: christmasMusicMix.compression });
 const fullscreenControl = createFullscreenControl(
   document.querySelector('#fullscreen'),
   document.querySelector('main'),

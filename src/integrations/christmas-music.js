@@ -1,12 +1,13 @@
 // Attempt autoplay, then retry on the first gesture if the browser blocks it.
-// Decode two synchronized stems once. The melody
+// Decode synchronized stems once. The melody
 // always continues; rotation fades in accompaniment without changing tempo.
 // Gain nodes also work on iOS, where media-element volume is not adjustable.
-export function createChristmasMusic({ button, note, urls, autoPlay = true,
+export function createChristmasMusic({ button, note, urls, levels = urls.map(() => 1),
+  masterVolume = .7, compression = null, autoPlay = true,
   createContext = () => new (window.AudioContext || window.webkitAudioContext)(),
   fetchAudio = (...args) => fetch(...args), doc = document, win = window,
   schedule = setTimeout, unschedule = clearTimeout }) {
-  let context, master, layers, preparing, pauseTimer;
+  let context, master, compressor, layers, preparing, pauseTimer;
   let enabled = autoPlay, listening = false, away = false, disposed = false, ready = false;
   let generation = 0, hold = 0, mood = 'melody';
   const abort = new AbortController();
@@ -34,7 +35,9 @@ export function createChristmasMusic({ button, note, urls, autoPlay = true,
   }
   function mix() {
     if (!ready) return;
-    ramp(layers[1].gain.gain, Number(mood === 'lively'), 1.2);
+    layers.slice(1).forEach((layer, index) => {
+      ramp(layer.gain.gain, mood === 'lively' ? levels[index + 1] : 0, 1.2);
+    });
   }
   function setMood(next) {
     if (next === mood) return;
@@ -50,7 +53,7 @@ export function createChristmasMusic({ button, note, urls, autoPlay = true,
   function applyPlayback() {
     if (disposed) return;
     if (!enabled || listening || !visible()) pauseNow();
-    else if (ready && context?.state === 'running') ramp(master.gain, .7, .6);
+    else if (ready && context?.state === 'running') ramp(master.gain, masterVolume, .6);
     sync();
   }
   function fail(token) {
@@ -67,11 +70,12 @@ export function createChristmasMusic({ button, note, urls, autoPlay = true,
         return context.decodeAudioData(await response.arrayBuffer());
       }));
       if (disposed) return;
+      const loopEnd = Math.min(...buffers.map(buffer => buffer.duration));
       layers = buffers.map((buffer, index) => {
         const source = context.createBufferSource(), gain = context.createGain();
-        source.buffer = buffer; source.loop = true;
-        gain.gain.value = index === 0 ? 1 : Number(mood === 'lively');
-        source.connect(gain); gain.connect(master);
+        source.buffer = buffer; source.loop = true; source.loopEnd = loopEnd;
+        gain.gain.value = index === 0 || mood === 'lively' ? levels[index] : 0;
+        source.connect(gain); gain.connect(compressor || master);
         return { source, gain };
       });
       const start = context.currentTime + .03;
@@ -86,6 +90,11 @@ export function createChristmasMusic({ button, note, urls, autoPlay = true,
       if (!context) {
         context = createContext(); master = context.createGain();
         master.gain.value = 0; master.connect(context.destination);
+        if (compression) {
+          compressor = context.createDynamicsCompressor();
+          for (const [key, value] of Object.entries(compression)) compressor[key].value = value;
+          compressor.connect(master);
+        }
         context.onstatechange = applyPlayback;
       }
       // A blocked Web Audio resume may stay pending indefinitely rather than
@@ -155,7 +164,7 @@ export function createChristmasMusic({ button, note, urls, autoPlay = true,
       gestures.forEach(type => doc.removeEventListener(type, firstGesture, true));
       win.removeEventListener('pagehide', leave); win.removeEventListener('pageshow', returnToPage);
       layers?.forEach(layer => { layer.source.stop(); layer.source.disconnect(); layer.gain.disconnect(); });
-      master?.disconnect();
+      compressor?.disconnect(); master?.disconnect();
       if (context) { context.onstatechange = null; context.close().catch(() => {}); }
     },
   };

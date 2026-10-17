@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createChristmasMusic } from '../src/integrations/christmas-music.js';
+import { christmasMusicMix } from '../src/integrations/christmas-music-mix.js';
 
 function setup(fetchAudio, options = {}) {
   class Button extends EventTarget {
@@ -23,13 +24,18 @@ function setup(fetchAudio, options = {}) {
       async resume() { this.state = 'running'; },
       async suspend() { this.state = 'suspended'; },
       async close() { this.state = 'closed'; },
-      async decodeAudioData(data) { return { data }; },
+      async decodeAudioData(data) { return { data, duration: 15 }; },
       createGain() {
-        const gain = { gain: new Parameter(), connect() {}, disconnect() { this.disconnected = true; } };
+        const gain = { gain: new Parameter(), connect(target) { this.target = target; }, disconnect() { this.disconnected = true; } };
         this.gains.push(gain); return gain;
       },
+      createDynamicsCompressor() {
+        const compressor = { connect(target) { this.target = target; }, disconnect() { this.disconnected = true; } };
+        for (const key of ['threshold', 'knee', 'ratio', 'attack', 'release']) compressor[key] = new Parameter();
+        this.compressor = compressor; return compressor;
+      },
       createBufferSource() {
-        const source = { connect() {}, start(time) { this.started = time; }, stop() { this.stopped = true; }, disconnect() { this.disconnected = true; } };
+        const source = { connect(target) { this.target = target; }, start(time) { this.started = time; }, stop() { this.stopped = true; }, disconnect() { this.disconnected = true; } };
         this.sources.push(source); return source;
       },
     };
@@ -71,6 +77,49 @@ test('music waits for a gesture, keeps the melody continuous, and fades synchron
   assert.equal(context.state, 'closed'); assert.ok(context.sources.every(source => source.stopped && source.disconnected));
   assert.ok(context.gains.every(gain => gain.disconnected));
   s.click(); assert.equal(s.contexts.length, 1);
+});
+
+test('approved audition mix preserves all six original samples, gains and shared compression', async () => {
+  const { tracks, masterVolume, compression } = christmasMusicMix;
+  assert.deepEqual(tracks.map(track => [track.file, track.level]), [
+    ['music-lab/audio/crystal-round.mp3', .4],
+    ['music-lab/audio/electronic-drums.mp3', 1.2],
+    ['music-lab/audio/piano-rhythm.mp3', .9],
+    ['music-lab/audio/bass.mp3', 1.2],
+    ['music-lab/audio/sleigh-bells.mp3', .25],
+    ['music-lab/audio/trumpet.mp3', .3],
+  ]);
+  const s = setup(undefined, { urls: tracks.map(track => track.file), levels: tracks.map(track => track.level),
+    masterVolume, compression });
+  s.click(); await s.flush();
+  const context = s.contexts[0], [master, ...channels] = context.gains;
+  assert.deepEqual(s.requests.map(([url]) => url), tracks.map(track => track.file));
+  assert.equal(master.gain.value, .5, 'the selected 50% master is applied after compression');
+  assert.equal(master.target, context.destination);
+  assert.equal(context.compressor.target, master);
+  assert.deepEqual(Object.fromEntries(Object.keys(compression).map(key => [key, context.compressor[key].value])),
+    { threshold: -6, knee: 6, ratio: 8, attack: .003, release: .16 });
+  assert.ok(channels.every(channel => channel.target === context.compressor));
+  assert.deepEqual(channels.map(channel => channel.gain.value), [.4, 0, 0, 0, 0, 0]);
+  assert.ok(context.sources.every((source, index) => source.target === channels[index]
+    && source.loop && source.loopEnd === 15 && source.started === 10.03));
+  s.music.update(.1, true);
+  assert.deepEqual(channels.map(channel => channel.gain.value), [.4, 1.2, .9, 1.2, .25, .3]);
+  assert.ok(channels.slice(1).every(channel => channel.gain.events.at(-1)[2] === 11.2),
+    'every accompaniment layer uses the same fade clock');
+  assert.deepEqual(channels[0].gain.events, [], 'the crystal piano must continue through rotation');
+  s.music.update(1, false);
+  assert.deepEqual(channels.map(channel => channel.gain.value), [.4, 0, 0, 0, 0, 0]);
+  s.music.setListening(true);
+  assert.equal(master.gain.value, 0); assert.equal(context.state, 'suspended');
+  s.music.setListening(false); await s.flush();
+  assert.equal(master.gain.value, .5);
+  s.click(); s.runTimers(); s.click(); await s.flush();
+  assert.equal(s.requests.length, 6); assert.equal(context.sources.length, 6);
+  s.music.dispose();
+  assert.equal(context.compressor.disconnected, true);
+  assert.ok(context.sources.every(source => source.stopped && source.disconnected));
+  assert.ok(context.gains.every(gain => gain.disconnected));
 });
 
 test('microphone and hidden pages immediately mute; returning honors the music preference', async () => {
