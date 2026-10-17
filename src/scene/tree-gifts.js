@@ -44,8 +44,7 @@ export function createTreeGifts(tree) {
   let elapsed = 0, reduced = false;
   function ground(gift) {
     let bottom = Infinity;
-    for (const sample of gift.support) bottom = Math.min(bottom, point.copy(sample).applyQuaternion(gift.group.quaternion).y * gift.size);
-    gift.group.scale.setScalar(gift.size);
+    for (const sample of gift.support) bottom = Math.min(bottom, point.copy(sample).multiply(gift.group.scale).applyQuaternion(gift.group.quaternion).y);
     gift.group.position.y = .08 - bottom;
   }
   function place(gift, progress) {
@@ -55,6 +54,7 @@ export function createTreeGifts(tree) {
     roll.setFromAxisAngle(gift.axis, -(radius - 1.50) / (gift.size * .55));
     gift.group.quaternion.copy(roll).multiply(gift.resting);
     gift.group.position.set(Math.sin(gift.angle) * radius, 0, Math.cos(gift.angle) * radius);
+    gift.group.scale.setScalar(gift.size);
     ground(gift);
   }
   function planExit(gift, camera) {
@@ -93,15 +93,22 @@ export function createTreeGifts(tree) {
         if (gift.phase === 'gone') { gift.group.visible = false; continue; }
         if (gift.phase === 'exiting') {
           gift.exitTime += delta;
-          // Each beat is one gentle quarter-turn, then a short grounded pause.
-          // Wider screens add more beats instead of increasing launch speed.
-          const beat = reducedMotion ? gift.exitSteps : Math.min(gift.exitSteps, gift.exitTime / .52);
-          const step = Math.floor(beat), part = Math.min(1, (beat - step) / .65);
-          const eased = part * part * part * (part * (part * 6 - 15) + 10);
-          const advance = Math.min(1, (step + eased) / gift.exitSteps);
+          // Ease into a continuous roll. A small speed variation supplies the
+          // rhythm without stopping between turns; wider views add more turns.
+          const travelTime = gift.exitTime - .14 * (1 - Math.exp(-gift.exitTime / .14));
+          const beat = reducedMotion ? gift.exitSteps : Math.min(gift.exitSteps, travelTime / .58);
+          const phase = beat * Math.PI * 2;
+          const advance = (beat - .18 * Math.sin(phase) / (Math.PI * 2)) / gift.exitSteps;
           gift.group.position.lerpVectors(gift.exitFrom, gift.exitTo, advance);
           roll.setFromAxisAngle(gift.exitAxis, gift.exitSteps * Math.PI / 2 * advance);
-          gift.group.quaternion.copy(roll).multiply(gift.exitRotation); ground(gift);
+          gift.group.quaternion.copy(roll).multiply(gift.exitRotation);
+          const spring = reducedMotion ? 0 : 1 - Math.exp(-gift.exitTime / .12);
+          const stretch = 1 - .055 * Math.cos(phase) * spring;
+          gift.group.scale.set(gift.size / Math.sqrt(stretch), gift.size * stretch, gift.size / Math.sqrt(stretch));
+          ground(gift);
+          // Short, soft hops stay close to the pedestal. Scaling is included in
+          // ground support so the elastic shape never cuts through the floor.
+          gift.group.position.y += gift.size * .16 * Math.sin(phase / 2) ** 2 * spring;
           if (beat >= gift.exitSteps) {
             const camera = gift.exitCamera;
             if (camera && !reducedMotion) {

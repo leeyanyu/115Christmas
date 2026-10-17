@@ -77,17 +77,26 @@ test('tapped presents roll out of the frame once and stay gone until replay', ()
     assert.ok(gift.visible); assert.ok(gift.position.distanceTo(position) > .01); assert.ok(!gift.quaternion.equals(rotation));
     assert.ok(effect.hitTargets.includes(gift), 'a moving gift should still block clicks on the tree behind it');
     assert.ok(new THREE.Box3().setFromObject(gift).min.y >= .0799);
-    const pause = gift.position.clone(), pausedRotation = gift.quaternion.clone();
+    const rolling = gift.position.clone(), rollingRotation = gift.quaternion.clone();
     effect.update(.08, true, false);
-    assert.ok(gift.position.distanceTo(pause) < .00001, 'each roll needs a quiet pause');
-    assert.ok(gift.quaternion.angleTo(pausedRotation) < .00001);
-    effect.update(.14, true, false); assert.ok(gift.position.distanceTo(pause) > .01);
+    assert.ok(Math.hypot(gift.position.x - rolling.x, gift.position.z - rolling.z) > .005, 'rolling must not pause between beats');
+    assert.ok(gift.quaternion.angleTo(rollingRotation) > .01);
+    effect.update(.14, true, false); assert.ok(gift.position.distanceTo(rolling) > .01);
     let time = .62;
+    let lowest = Infinity, highest = -Infinity, compressed = false, stretched = false;
     while (gift.visible && time < 20) {
       const previous = gift.position.clone(); effect.update(.02, true, false); time += .02;
+      if (gift.visible) assert.ok(Math.hypot(gift.position.x - previous.x, gift.position.z - previous.z) > .001, 'gift has a hard stop during departure');
       assert.ok(gift.position.distanceTo(previous) / .02 < 2, 'gift launches across the scene too fast');
       assert.ok(gift.position.y < .08 + gift.scale.x * 1.1, 'gift flies above the ground');
+      const bottom = new THREE.Box3().setFromObject(gift).min.y;
+      assert.ok(bottom >= .0799, 'elastic gift sinks through the pedestal');
+      lowest = Math.min(lowest, bottom); highest = Math.max(highest, bottom);
+      compressed ||= gift.scale.y / gift.scale.x < .97;
+      stretched ||= gift.scale.y / gift.scale.x > 1.03;
     }
+    assert.ok(highest - lowest > .015 && highest < .125, 'departure needs small, grounded hops');
+    assert.ok(compressed && stretched, 'departure needs a gentle squash and rebound');
     assert.equal(gift.visible, false); assert.ok(time > 1.5 && time < 20);
     assert.ok(!effect.hitTargets.includes(gift));
     const screen = gift.getWorldPosition(new THREE.Vector3()).project(camera); assert.ok(Math.abs(screen.x) > 1.1);
