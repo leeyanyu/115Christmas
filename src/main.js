@@ -10,7 +10,7 @@ const label = document.querySelector('#button-label');
 const status = document.querySelector('#status');
 const reveal = document.querySelector('#reveal');
 const music = createChristmasMusic({ button: document.querySelector('#music-toggle'), note: document.querySelector('#music-note'),
-  urls: ['melody-loop.mp3', 'rhythm-loop.mp3'].map(file => `${import.meta.env.BASE_URL}audio/${file}`) });
+  urls: ['melody-loop.mp3', 'rhythm-brass-loop.mp3'].map(file => `${import.meta.env.BASE_URL}audio/${file}`) });
 const fullscreenControl = createFullscreenControl(
   document.querySelector('#fullscreen'),
   document.querySelector('main'),

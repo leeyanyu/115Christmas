@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createChristmasMusic } from '../src/integrations/christmas-music.js';
 
-function setup(fetchAudio) {
+function setup(fetchAudio, options = {}) {
   class Button extends EventTarget {
     dataset = {};
     classList = { toggle() {} };
@@ -35,7 +35,8 @@ function setup(fetchAudio) {
     };
     contexts.push(context); return context;
   }
-  const music = createChristmasMusic({ button, note, urls: ['gentle', 'lively'], doc, win, createContext,
+  const music = createChristmasMusic({ button, note, urls: ['melody', 'rhythm'], autoPlay: false, doc, win,
+    createContext: () => { const context = createContext(); options.configureContext?.(context); return context; }, ...options,
     fetchAudio: (...args) => { requests.push(args); return fetchAudio ? fetchAudio(...args) : Promise.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(2) }); },
     schedule(fn) { const id = timers.size + 1; timers.set(id, fn); return id; }, unschedule(id) { timers.delete(id); } });
   return { music, button, note, contexts, requests, doc, win,
@@ -143,4 +144,60 @@ test('load and playback failures remain retryable without duplicating sources', 
   s.click(); await s.flush(); assert.equal(s.contexts[0].state, 'running');
   assert.equal(s.contexts[0].sources.length, 2); s.music.resetMotion(); assert.equal(s.button.dataset.musicMood, 'melody');
   s.music.dispose();
+});
+
+test('autoplay starts without a gesture when permitted and stays off after the visitor mutes', async () => {
+  const s = setup(undefined, { autoPlay: true }); await s.flush();
+  assert.equal(s.contexts.length, 1); assert.equal(s.requests.length, 2);
+  assert.equal(s.contexts[0].state, 'running'); assert.equal(s.button.dataset.musicPlayback, 'playing');
+  s.click(); s.runTimers();
+  for (const type of ['pointerdown', 'pointerup', 'touchend', 'keydown']) s.doc.dispatchEvent(new Event(type));
+  await s.flush();
+  assert.equal(s.contexts[0].state, 'suspended'); assert.equal(s.button['aria-pressed'], 'false');
+  s.music.dispose();
+});
+
+test('a pending or denied autoplay resume waits for a gesture without hanging preparation', async () => {
+  for (const denial of ['pending', 'rejected']) {
+    let calls = 0;
+    const s = setup(undefined, { autoPlay: true, configureContext(context) {
+      const resume = context.resume.bind(context);
+      context.resume = () => {
+        if (++calls > 1) return resume();
+        return denial === 'pending' ? new Promise(() => {})
+          : Promise.reject(Object.assign(new Error('gesture required'), { name: 'NotAllowedError' }));
+      };
+    } });
+    await s.flush();
+    assert.equal(s.button['aria-busy'], 'false', 'audio loading cannot wait for a blocked resume promise');
+    assert.equal(s.button['aria-pressed'], 'true'); assert.equal(s.button.dataset.musicPlayback, 'waiting');
+    assert.equal(s.contexts[0].gains[0].gain.value, 0);
+    s.doc.dispatchEvent(new Event('pointerup')); await s.flush();
+    assert.equal(s.contexts[0].state, 'running'); assert.equal(s.button.dataset.musicPlayback, 'playing');
+    assert.equal(s.contexts[0].sources.length, 2); assert.equal(s.requests.length, 2);
+    s.music.dispose();
+  }
+});
+
+test('mute, microphone and dispose prevent a late autoplay unlock from overriding them', async () => {
+  let unblock;
+  const s = setup(undefined, { autoPlay: true, configureContext(context) {
+    context.resume = () => new Promise(resolve => { unblock = () => { context.state = 'running'; context.onstatechange?.(); resolve(); }; });
+  } });
+  await s.flush(); s.click();
+  unblock(); await s.flush(); assert.equal(s.contexts[0].state, 'suspended');
+  assert.equal(s.contexts[0].gains[0].gain.value, 0); assert.equal(s.button['aria-pressed'], 'false');
+  const count = s.contexts.length; s.music.dispose();
+  s.doc.dispatchEvent(new Event('pointerup')); await s.flush(); assert.equal(s.contexts.length, count);
+
+  let blocked = true;
+  const t = setup(undefined, { autoPlay: true, configureContext(context) {
+    const resume = context.resume.bind(context);
+    context.resume = () => blocked ? new Promise(() => {}) : resume();
+  } });
+  await t.flush(); t.music.setListening(true); blocked = false;
+  t.doc.dispatchEvent(new Event('touchend')); await t.flush();
+  assert.equal(t.contexts[0].state, 'suspended', 'gesture cannot start music during microphone analysis');
+  t.music.setListening(false); await t.flush(); assert.equal(t.contexts[0].state, 'running');
+  t.music.dispose();
 });

@@ -44,7 +44,7 @@ CHORDS += CHORDS[:6] + [(43, 47, 50), (48, 52, 55)]
 
 def tone(pitch, duration, instrument):
     """Soft attacks, natural decays, and releases prevent clicks."""
-    tail = .8 if instrument in ('pad', 'piano') else 1.3
+    tail = .22 if instrument == 'trumpet' else .8 if instrument in ('pad', 'piano') else 1.3
     t = np.arange(int((duration + tail) * RATE)) / RATE
     frequency = 440 * 2 ** ((pitch - 69) / 12)
     phase = 2 * np.pi * frequency * t
@@ -58,6 +58,13 @@ def tone(pitch, duration, instrument):
         signal = (np.sin(phase) + .26 * np.sin(phase * 2) * np.exp(-t * 2)
                   + .085 * np.sin(phase * 3) * np.exp(-t * 4)) * np.exp(-t / .65)
         attack = 1 - np.exp(-t / .008)
+    elif instrument == 'trumpet':
+        # A rounded brass timbre with a soft tongued attack and small vibrato.
+        phase += .045 * np.sin(2 * np.pi * 5.3 * t) * np.clip(t / .2, 0, 1)
+        signal = sum(weight * np.sin(phase * harmonic) for harmonic, weight in
+                     [(1, .65), (2, .45), (3, .25), (4, .12), (5, .055), (6, .025)])
+        signal *= .82 + .18 * np.exp(-t / .12)
+        attack = 1 - np.exp(-t / .013)
     elif instrument == 'pad':
         signal = .5 * (np.sin(phase * .999) + np.sin(phase * 1.001)) + .09 * np.sin(phase * 2)
         attack = np.clip(t / .24, 0, 1)
@@ -83,6 +90,7 @@ def render(lively, loop=False, separate=False):
     length = 64 * beat
     track = np.zeros((round((length + 2) * RATE), 2), dtype=np.float64)
     backing = np.zeros_like(track) if separate else track
+    horns = np.zeros_like(track) if separate else None
     for bar, (notes, chord) in enumerate(zip(MELODY, CHORDS)):
         start = bar * 4 * beat + .12
         position = 0
@@ -120,6 +128,12 @@ def render(lively, loop=False, separate=False):
                 kick = np.sin(phase) * np.exp(-t / .055) * (1 - np.exp(-t / .003))
                 for offset in [0, 2]:
                     add(backing, kick, start + offset * beat, .10)
+                # Short trumpet responses add theatre only to the rotation stem.
+                phrase = [(2.5, chord[2] + 12, .35), (3, chord[1] + 12, .65)]
+                if bar % 2:
+                    phrase.insert(0, (1.5, chord[0] + 24, .45))
+                for offset, pitch, beats in phrase:
+                    add(horns, tone(pitch, beats * beat, 'trumpet'), start + offset * beat, .062, -.22)
         else:
             for i, pitch in enumerate(chord):
                 add(backing, tone(pitch, beat * 3.65, 'pad'), start, .022, [-.45, 0, .45][i])
@@ -130,6 +144,8 @@ def render(lively, loop=False, separate=False):
 
     # Short stereo reflections keep the melody distinct, with a little air.
     tracks = [track, backing] if separate else [track]
+    if separate:
+        tracks.append(horns)
     for index, part in enumerate(tracks):
         dry = part.copy()
         for seconds, gain in [(.079, .14), (.131, .105), (.229, .075), (.367, .045)]:
@@ -143,7 +159,8 @@ def render(lively, loop=False, separate=False):
             tail = part[start + frames:]
             body[:len(tail)] += tail
             tracks[index] = body
-    combined = sum(tracks)
+    # Preserve the approved melody's level; add brass to its backing afterward.
+    combined = sum(tracks[:2]) if separate else tracks[0]
     rms = np.sqrt(np.mean(combined ** 2))
     target_rms = .100 if lively else .058
     gain = min(target_rms / rms, .82 / np.max(np.abs(combined)))
@@ -154,6 +171,8 @@ def render(lively, loop=False, separate=False):
             fade_out = round(1.2 * RATE)
             part[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
             part[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None]
+    if separate:
+        tracks[1] += tracks.pop()
     return (tracks if separate else tracks[0]), beat
 
 
@@ -181,7 +200,7 @@ def main():
         output = OUTPUT.parent / 'audio'
         output.mkdir(parents=True, exist_ok=True)
         stems, _ = render(True, loop=True, separate=True)
-        for name, samples in zip(['melody-loop', 'rhythm-loop'], stems):
+        for name, samples in zip(['melody-loop', 'rhythm-brass-loop'], stems):
             export(name, samples, output)
         return
     OUTPUT.mkdir(parents=True, exist_ok=True)
