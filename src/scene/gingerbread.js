@@ -45,7 +45,43 @@ export function createGingerbread(tree) {
   ball(icing, 0, .04, .065, .019); ball(icing, 0, -.04, .065, .019);
   tree.root.add(root);
   const home = new THREE.Vector3(.42, 1.95, -1.08), localCamera = new THREE.Vector3();
-  const landing = new THREE.Vector3(.85, .51, -1.3), exit = new THREE.Vector3(), entry = new THREE.Vector3();
+  const landing = new THREE.Vector3(.85, .51, -1.3), exit = new THREE.Vector3(), entry = new THREE.Vector3(), tangentPoint = new THREE.Vector3();
+  const back = new THREE.Vector2(home.x, home.z).normalize(), routeRadius = 2.35;
+  const foliage = [], vertex = new THREE.Vector3(), inverse = new THREE.Matrix4();
+  tree.root.updateWorldMatrix(true, true); inverse.copy(tree.root.matrixWorld).invert();
+  // Conservative local-space branch envelopes are computed once, before the
+  // opening scales the layers. Character routes stay outside these envelopes.
+  tree.layers.forEach(layer => layer.traverse(mesh => {
+    if (!mesh.geometry) return;
+    const positions = mesh.geometry.attributes.position;
+    let low = Infinity, high = -Infinity, radius = 0;
+    for (let i = 0; i < positions.count; i++) {
+      vertex.fromBufferAttribute(positions, i).applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
+      low = Math.min(low, vertex.y); high = Math.max(high, vertex.y); radius = Math.max(radius, Math.hypot(vertex.x, vertex.z));
+    }
+    foliage.push({ low, high, radius });
+  }));
+  let size = 1;
+  function branchRadius(y) {
+    let radius = .2;
+    for (const branch of foliage) {
+      const distance = Math.max(branch.low - (y + .6 * size), y - .6 * size - branch.high, 0);
+      const weight = 1 - THREE.MathUtils.smoothstep(distance, 0, .28);
+      radius = Math.max(radius, .2 + (branch.radius - .2) * weight);
+    }
+    return radius + .11 * size + .03;
+  }
+  function anchors(camera) {
+    size = camera.aspect > 1.1 ? .76 : 1;
+    const radius = branchRadius(1.95);
+    home.set(back.x * radius, 1.95, back.y * radius);
+    landing.set(back.x * routeRadius, .43 * size, back.y * routeRadius);
+  }
+  function cling(y, progress) {
+    const radius = Math.max(branchRadius(y), THREE.MathUtils.lerp(Math.hypot(home.x, home.z), routeRadius, progress));
+    root.position.set(back.x * radius, y, back.y * radius);
+    root.rotation.y = Math.atan2(back.x, back.y);
+  }
   const ease = t => t * t * (3 - 2 * t);
   const characters = [[0xbe8653, 0xcc8990], [0xa5714d, 0x8bb8a3], [0xc69761, 0xd8ba76]];
   let phase = 'hidden', seen = 0, elapsed = 0, cooldown = 0, character = 0, hops = 3, travelDuration = 2.7;
@@ -53,7 +89,12 @@ export function createGingerbread(tree) {
   function screenPoint(camera, target, x) {
     camera.updateMatrixWorld();
     target.copy(landing); tree.root.localToWorld(target); target.project(camera);
-    target.x = x; target.unproject(camera); tree.root.worldToLocal(target); target.y = landing.y;
+    const depth = target.z, screenY = target.y;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      target.set(x, screenY, depth).unproject(camera); tree.root.worldToLocal(target); target.y = landing.y;
+      if (Math.hypot(target.x, target.z) >= routeRadius) break;
+      x *= 1.4;
+    }
   }
   function plan(camera, point) {
     // Wide desktop routes need smaller, quicker steps rather than long leaps.
@@ -66,55 +107,77 @@ export function createGingerbread(tree) {
     const progress = Math.min(1, elapsed / travelDuration), hop = progress * hops;
     const part = progress === 1 ? 1 : hop % 1;
     const advance = progress === 1 ? 1 : (Math.floor(hop) + ease(part)) / hops;
-    root.position.lerpVectors(arriving ? point : landing, arriving ? landing : point, advance);
-    const height = camera.aspect > 1.1 ? .19 : .32 + Math.floor(Math.min(hop, 2)) * .06;
+    const angle = Math.atan2(landing.x, landing.z), endAngle = Math.atan2(point.x, point.z);
+    const turn = Math.atan2(Math.sin(endAngle - angle), Math.cos(endAngle - angle));
+    const radius = Math.max(routeRadius, Math.hypot(point.x, point.z));
+    const arc = Math.sign(turn) * Math.max(0, Math.abs(turn) - Math.acos(Math.min(1, routeRadius / radius)));
+    const fraction = arriving ? 1 - advance : advance;
+    if (Math.abs(arc) < .00001) root.position.lerpVectors(landing, point, fraction);
+    else {
+      // Follow only the short safety arc, then its tangent. A large polar arc
+      // would bring the actor toward the lens and exaggerate its screen size.
+      const arcLength = Math.abs(arc) * routeRadius, lineLength = Math.sqrt(Math.max(0, radius * radius - routeRadius * routeRadius));
+      const distance = fraction * (arcLength + lineLength);
+      if (distance < arcLength) {
+        const currentAngle = angle + arc * distance / arcLength;
+        root.position.set(Math.sin(currentAngle) * routeRadius, landing.y, Math.cos(currentAngle) * routeRadius);
+      } else {
+        tangentPoint.set(Math.sin(angle + arc) * routeRadius, landing.y, Math.cos(angle + arc) * routeRadius);
+        root.position.lerpVectors(tangentPoint, point, lineLength > .00001 ? (distance - arcLength) / lineLength : 1);
+      }
+    }
+    const height = (camera.aspect > 1.1 ? .19 : .32 + Math.floor(Math.min(hop, 2)) * .06) * size;
     root.position.y += Math.sin(part * Math.PI) * height;
     root.rotation.y = Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z);
     root.rotation.z = Math.sin(part * Math.PI) * (arriving ? .12 : -.15);
-    root.scale.set(1 - Math.sin(part * Math.PI) * .035, 1 + Math.sin(part * Math.PI) * .06, 1);
+    root.scale.set((1 - Math.sin(part * Math.PI) * .035) * size, (1 + Math.sin(part * Math.PI) * .06) * size, size);
     return progress === 1;
   }
-  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; dress(); root.position.copy(home); root.rotation.set(0, Math.PI, -.15); root.scale.setScalar(1); root.visible = false; }
+  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; dress(); root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
   reset();
   return {
     get isPerforming() { return phase !== 'hidden'; },
     update(delta, camera, ready, reducedMotion) {
       root.visible = ready && phase !== 'away';
       if (!ready) return;
+      anchors(camera);
       if (reducedMotion && phase !== 'hidden') { reset(); root.visible = true; }
       elapsed += delta; cooldown = Math.max(0, cooldown - delta);
       tree.root.updateWorldMatrix(true, false); localCamera.copy(camera.position); tree.root.worldToLocal(localCamera);
       const behind = -localCamera.z / Math.max(.01, Math.hypot(localCamera.x, localCamera.z)) > .8;
       if (phase === 'hidden') {
+        root.position.copy(home); root.scale.setScalar(size);
         seen = behind && !cooldown ? seen + delta : 0;
         if (seen >= 1.1 && !reducedMotion) { phase = 'falling'; elapsed = 0; }
       } else if (phase === 'falling') {
+        root.scale.setScalar(size);
         const t = Math.min(1, elapsed / 1.1);
-        root.position.set(home.x + .43 * t, home.y + (landing.y - home.y) * t * t, home.z - .22 * t);
+        cling(home.y + (landing.y - home.y) * t * t, t);
         root.rotation.z = -.15 + Math.sin(t * Math.PI) * .65;
         if (t === 1) { phase = 'bouncing'; elapsed = 0; }
       } else if (phase === 'bouncing') {
         const t = Math.min(1, elapsed / .8);
-        root.position.copy(landing); root.position.y += Math.abs(Math.sin(t * Math.PI * 2)) * .18 * (1 - t);
+        root.position.copy(landing); root.position.y += Math.abs(Math.sin(t * Math.PI * 2)) * .18 * size * (1 - t);
         const squash = Math.exp(-t * 7) * .1;
-        root.scale.set(1 + squash, 1 - squash, 1);
+        root.scale.set((1 + squash) * size, (1 - squash) * size, size);
         root.rotation.z = -.15 * (1 - t);
-        if (t === 1) { phase = 'hopping'; elapsed = 0; root.scale.setScalar(1); screenPoint(camera, exit, 1.55); plan(camera, exit); }
+        if (t === 1) { phase = 'hopping'; elapsed = 0; root.scale.setScalar(size); screenPoint(camera, exit, 1.55); plan(camera, exit); }
       } else if (phase === 'hopping') {
         if (travel(camera, false)) { phase = 'away'; cooldown = 5; root.visible = false; }
       } else if (phase === 'away' && !cooldown) {
         character = (character + 1) % characters.length; dress();
         screenPoint(camera, entry, -1.55); plan(camera, entry);
-        root.position.copy(entry); root.scale.setScalar(1); phase = 'arriving'; elapsed = 0; root.visible = true;
+        root.position.copy(entry); root.scale.setScalar(size); phase = 'arriving'; elapsed = 0; root.visible = true;
       } else if (phase === 'arriving') {
-        if (travel(camera, true)) { phase = 'climbing'; elapsed = 0; root.scale.setScalar(1); }
+        if (travel(camera, true)) { phase = 'climbing'; elapsed = 0; root.scale.setScalar(size); }
       } else if (phase === 'climbing') {
+        root.scale.setScalar(size);
         const progress = Math.min(1, elapsed / 2.6), step = progress * 5;
         const part = progress === 1 ? 1 : step % 1;
         const advance = progress === 1 ? 1 : (Math.floor(step) + ease(part)) / 5;
-        root.position.lerpVectors(landing, home, advance);
-        root.rotation.set(0, Math.PI, Math.sin(part * Math.PI) * (Math.floor(step) % 2 ? -.12 : .12));
-        if (progress === 1) { phase = 'hidden'; seen = elapsed = 0; cooldown = 6; root.rotation.z = -.15; }
+        cling(THREE.MathUtils.lerp(landing.y, home.y, advance), 1 - advance);
+        root.rotation.z = Math.sin(part * Math.PI) * (Math.floor(step) % 2 ? -.12 : .12);
+        if (progress === 1) { root.position.copy(home); phase = 'hidden'; seen = elapsed = 0; cooldown = 6; root.rotation.z = -.15; }
       }
     },
     reset,
