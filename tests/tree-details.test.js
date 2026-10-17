@@ -98,7 +98,8 @@ test('side views retain a solid cookie and a visible face without detaching from
   const tree = createTree(), camera = new THREE.PerspectiveCamera(37, aspect);
   const effect = createGingerbread(tree), ginger = tree.root.getObjectByName('hidden-gingerbread');
   const body = ginger.children[0].geometry; body.computeBoundingBox();
-  assert.ok(body.boundingBox.max.z - body.boundingBox.min.z >= .20);
+  const thickness = body.boundingBox.max.z - body.boundingBox.min.z;
+  assert.ok(thickness >= .139 && thickness < .15);
   const solid = new THREE.Mesh(body, ginger.children[0].material), ray = new THREE.Raycaster();
   for (const direction of [new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)]) {
     ray.set(direction.clone().multiplyScalar(2).add(new THREE.Vector3(0, .05, 0)), direction.clone().negate());

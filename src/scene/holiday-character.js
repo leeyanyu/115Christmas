@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // View-facing diffuse fill belongs only to these materials. Global lights,
 // foliage shadows, and the tree's warm glow never need to change.
-function characterMaterial(options) {
+export function characterMaterial(options) {
   const material = new THREE.MeshStandardMaterial(options);
   const fill = new THREE.Color(0xffe2c0).multiplyScalar(.65);
   material.onBeforeCompile = shader => {
@@ -18,7 +18,7 @@ function characterMaterial(options) {
 
 export function createHolidayCharacter(kind = 'gingerbread') {
   const candy = kind === 'candy-cane';
-  const cookie = characterMaterial({ color: candy ? 0xffffff : 0xbe8653, roughness: candy ? .4 : .8 });
+  const cookie = characterMaterial({ color: candy ? 0xffffff : 0xd1a16a, roughness: candy ? .4 : .8 });
   const icing = characterMaterial({ color: candy ? 0x654536 : 0xffedd0, roughness: .65 });
   const pink = characterMaterial({ color: 0xcc8990, roughness: .7 });
   const ribbon = characterMaterial({ color: candy ? 0x8bb8a3 : 0xcc8990, roughness: .7 });
@@ -72,19 +72,20 @@ export function createHolidayCharacter(kind = 'gingerbread') {
     outline.bezierCurveTo(-.16, .16, -.13, .16, -.10, .19);
     outline.bezierCurveTo(-.23, .29, -.17, .47, 0, .47);
     outline.closePath();
-    body = new THREE.ExtrudeGeometry(outline, { depth: .14, bevelEnabled: true, bevelSize: .03, bevelThickness: .035, bevelSegments: 5, curveSegments: 20, steps: 1 });
-    body.translate(0, 0, -.07); root.add(new THREE.Mesh(body, cookie));
+    body = new THREE.ExtrudeGeometry(outline, { depth: .09, bevelEnabled: true, bevelSize: .025, bevelThickness: .025, bevelSegments: 5, curveSegments: 20, steps: 1 });
+    body.translate(0, 0, -.045); root.add(new THREE.Mesh(body, cookie));
     for (const side of [-1, 1]) {
-      ball(icing, side * .055, .33, .11, .017, .021, .012);
-      ball(pink, side * .085, .275, .109, .022, .013, .009);
+      ball(icing, side * .055, .33, .075, .017, .021, .012);
+      ball(pink, side * .085, .275, .074, .022, .013, .009);
     }
-    const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.055, .275, .111), new THREE.Vector3(0, .22, .118), new THREE.Vector3(.055, .275, .111));
+    const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.055, .275, .076), new THREE.Vector3(0, .22, .083), new THREE.Vector3(.055, .275, .076));
     root.add(new THREE.Mesh(new THREE.TubeGeometry(smile, 20, .009, 8, false), icing));
-    ball(ribbon, -.035, .14, .115, .044, .026, .012); ball(ribbon, .035, .14, .115, .044, .026, .012);
-    ball(ribbon, 0, .14, .125, .018);
-    ball(icing, 0, .04, .11, .019); ball(icing, 0, -.04, .11, .019);
+    ball(ribbon, -.035, .14, .08, .044, .026, .012); ball(ribbon, .035, .14, .08, .044, .026, .012);
+    ball(ribbon, 0, .14, .09, .018);
+    ball(icing, 0, .04, .075, .019); ball(icing, 0, -.04, .075, .019);
   }
-  const colors = [[0xbe8653, 0xcc8990], [0xa5714d, 0x8bb8a3], [0xc69761, 0xd8ba76]];
+  // Lightly baked, golden crisp, and deep toasted; every palette stays brown.
+  const colors = [[0xd1a16a, 0xcc8990], [0xb77b45, 0x8bb8a3], [0x825032, 0xd8ba76]];
   return {
     root, body,
     dress(index) { if (!candy) cookie.color.setHex(colors[index % colors.length][0]); ribbon.color.setHex(colors[index % colors.length][1]); },
