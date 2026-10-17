@@ -23,7 +23,12 @@ public-domain 1857 melody *Jingle Bells*. No commercial recording or samples are
 used. The approved eight-bar loop runs at **132 BPM**. All sources share one
 start timestamp and loop boundary, so switching accompaniment never restarts or
 changes the crystal piano's tempo. Manual, idle and party rotations use the same
-1.2-second accompaniment fade, with a .75-second hold for small drag pauses.
+1.2-second accompaniment fade-in, with a .75-second hold for small drag pauses.
+Stopping uses a 4.2-second raised-cosine fade-out: a gentle start, gradual
+reduction and a quiet tail. A new turn cancels the release at the current gain
+before fading back in. Switching music off uses a 1.4-second fade, and suspension
+waits for it to finish. These envelopes run on the audio clock, independently of
+the scene's frame rate. Microphone activation and page hiding still mute at once.
 
 Playback attempts autoplay; a first pointer/touch/keyboard gesture retries if
 the browser blocks it. The music icon stays hidden throughout the opening and

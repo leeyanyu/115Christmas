@@ -17,7 +17,7 @@ function setup(fetchAudio, options = {}) {
     linearRampToValueAtTime(value, time) { this.value = value; this.events.push(['ramp', value, time]); }
   }
   const button = new Button(), note = {}, doc = new EventTarget(), win = new EventTarget();
-  const contexts = [], requests = [], timers = new Map(); doc.hidden = false;
+  const contexts = [], requests = [], timers = new Map(), delays = []; doc.hidden = false;
   function createContext() {
     const context = {
       currentTime: 10, state: 'suspended', destination: {}, sources: [], gains: [],
@@ -44,8 +44,8 @@ function setup(fetchAudio, options = {}) {
   const music = createChristmasMusic({ button, note, urls: ['melody', 'rhythm'], autoPlay: false, doc, win,
     createContext: () => { const context = createContext(); options.configureContext?.(context); return context; }, ...options,
     fetchAudio: (...args) => { requests.push(args); return fetchAudio ? fetchAudio(...args) : Promise.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(2) }); },
-    schedule(fn) { const id = timers.size + 1; timers.set(id, fn); return id; }, unschedule(id) { timers.delete(id); } });
-  return { music, button, note, contexts, requests, doc, win,
+    schedule(fn, delay) { const id = timers.size + 1; timers.set(id, fn); delays.push(delay); return id; }, unschedule(id) { timers.delete(id); } });
+  return { music, button, note, contexts, requests, doc, win, delays,
     click: () => button.dispatchEvent(new Event('click')), flush: () => new Promise(resolve => setImmediate(resolve)),
     runTimers() { for (const fn of [...timers.values()]) fn(); timers.clear(); } };
 }
@@ -69,7 +69,7 @@ test('music waits for a gesture, keeps the melody continuous, and fades synchron
   s.music.update(.6, false); assert.equal(s.button.dataset.musicMood, 'lively');
   s.music.update(.2, false); assert.equal(s.button.dataset.musicMood, 'melody');
   assert.equal(melody.gain.value, 1); assert.equal(melody.gain.events.length, 0);
-  assert.deepEqual(rhythm.gain.events.at(-1), ['ramp', 0, 11.2]);
+  assert.deepEqual(rhythm.gain.events.at(-1), ['ramp', 0, 14.2]);
   s.click(); s.runTimers(); assert.equal(context.state, 'suspended');
   for (let i = 0; i < 12; i++) { s.click(); await s.flush(); s.click(); s.runTimers(); }
   assert.equal(s.requests.length, 2); assert.equal(s.contexts.length, 1); assert.equal(context.sources.length, 2);
@@ -77,6 +77,36 @@ test('music waits for a gesture, keeps the melody continuous, and fades synchron
   assert.equal(context.state, 'closed'); assert.ok(context.sources.every(source => source.stopped && source.disconnected));
   assert.ok(context.gains.every(gain => gain.disconnected));
   s.click(); assert.equal(s.contexts.length, 1);
+});
+
+test('stopping eases accompaniment into a long tail and a new turn cancels that tail', async () => {
+  const s = setup(); s.click(); await s.flush();
+  const context = s.contexts[0], [master, melody, rhythm] = context.gains;
+  s.music.update(.1, true);
+  // Model a fully audible accompaniment before scheduling its release.
+  context.currentTime = 12;
+  const before = rhythm.gain.events.length;
+  s.music.update(1, false);
+  const release = rhythm.gain.events.slice(before);
+  assert.deepEqual(release[0], ['hold', 12]);
+  const points = release.slice(1);
+  assert.ok(points.length > 2, 'release must have a shaped envelope, not a short straight fade');
+  assert.ok(points.every(([type, gain, time], index) => type === 'ramp' && gain >= 0 && time > 12
+    && (index === 0 || (gain < points[index - 1][1] && time > points[index - 1][2]))));
+  assert.ok(points[0][1] > .99, 'the release begins gently at the current volume');
+  assert.ok(points.some(([, gain, time]) => time >= 15 && gain > .01), 'there is still a quiet tail after three seconds');
+  assert.deepEqual(points.at(-1), ['ramp', 0, 16.2]);
+  assert.equal(melody.gain.events.length, 0);
+  assert.equal(master.gain.value, .7, 'rotation release must leave the master and lead playing');
+  context.currentTime = 13; rhythm.gain.value = .85;
+  s.music.update(.1, true);
+  assert.deepEqual(rhythm.gain.events.slice(-2), [['hold', 13], ['ramp', 1, 14.2]]);
+  s.click();
+  assert.ok(s.delays.at(-1) >= 1400, 'suspension must wait until the music-off fade is finished');
+  assert.equal(context.state, 'running');
+  s.click(); await s.flush(); s.runTimers();
+  assert.equal(context.state, 'running', 'quickly re-enabling must cancel the pending suspension');
+  s.music.dispose();
 });
 
 test('approved audition mix preserves all six original samples, gains and shared compression', async () => {
@@ -120,6 +150,30 @@ test('approved audition mix preserves all six original samples, gains and shared
   assert.equal(context.compressor.disconnected, true);
   assert.ok(context.sources.every(source => source.stopped && source.disconnected));
   assert.ok(context.gains.every(gain => gain.disconnected));
+});
+
+test('browsers without cancelAndHoldAtTime keep the current gain when replacing automation', async () => {
+  const s = setup(undefined, { configureContext(context) {
+    const createGain = context.createGain.bind(context);
+    context.createGain = () => {
+      const gain = createGain();
+      gain.gain.cancelAndHoldAtTime = undefined;
+      gain.gain.cancelScheduledValues = function(time) {
+        this.events.push(['cancel', time]); this.value = 0;
+      };
+      return gain;
+    };
+  } });
+  s.click(); await s.flush(); s.music.update(.1, true);
+  const rhythm = s.contexts[0].gains[2].gain;
+  s.music.update(1, false);
+  assert.ok(rhythm.events.at(-32)[1] > .99, 'cancellation cannot erase the starting level of the release');
+  rhythm.value = .65;
+  s.contexts[0].currentTime = 13;
+  s.music.update(.1, true);
+  assert.deepEqual(rhythm.events.slice(-3), [['cancel', 13], ['set', .65, 13], ['ramp', 1, 14.2]],
+    'resuming must start from the audible mid-fade level rather than zero');
+  s.music.dispose();
 });
 
 test('microphone and hidden pages immediately mute; returning honors the music preference', async () => {

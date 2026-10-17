@@ -27,16 +27,31 @@ export function createChristmasMusic({ button, note, urls, levels = urls.map(() 
         : waiting ? '聖誕音樂已準備好，輕觸頁面即可播放；點音符可關閉。'
         : enabled ? '聖誕音樂已開啟，旋轉時加入鼓點與伴奏，停下後保留主旋律。' : '點音符，聽見聖誕旋律。');
   }
-  function ramp(parameter, value, seconds) {
-    const now = context.currentTime;
+  function holdParameter(parameter) {
+    const now = context.currentTime, value = parameter.value;
     if (parameter.cancelAndHoldAtTime) parameter.cancelAndHoldAtTime(now);
-    else { parameter.cancelScheduledValues(now); parameter.setValueAtTime(parameter.value, now); }
+    else { parameter.cancelScheduledValues(now); parameter.setValueAtTime(value, now); }
+    return { now, value };
+  }
+  function ramp(parameter, value, seconds) {
+    const { now } = holdParameter(parameter);
     parameter.linearRampToValueAtTime(value, now + seconds);
+  }
+  function fadeOut(parameter, seconds) {
+    const { now, value: start } = holdParameter(parameter);
+    // A raised cosine eases into the fade and leaves a quiet, smooth tail.
+    // Audio-clock ramps keep it smooth even if rendering slows on a phone.
+    // Holding/cancelling these ramps also lets a new rotation resume mid-fade.
+    for (let step = 1; step <= 32; step++) {
+      const progress = step / 32;
+      parameter.linearRampToValueAtTime(start * (1 + Math.cos(Math.PI * progress)) / 2, now + seconds * progress);
+    }
   }
   function mix() {
     if (!ready) return;
     layers.slice(1).forEach((layer, index) => {
-      ramp(layer.gain.gain, mood === 'lively' ? levels[index + 1] : 0, 1.2);
+      if (mood === 'lively') ramp(layer.gain.gain, levels[index + 1], 1.2);
+      else fadeOut(layer.gain.gain, 4.2);
     });
   }
   function setMood(next) {
@@ -118,8 +133,8 @@ export function createChristmasMusic({ button, note, urls, levels = urls.map(() 
     if (enabled) { void activate(token); return; }
     unschedule(pauseTimer);
     if (context?.state === 'running') {
-      ramp(master.gain, 0, .18);
-      pauseTimer = schedule(() => { if (!disposed && !enabled && token === generation) pauseNow(); }, 200);
+      fadeOut(master.gain, 1.4);
+      pauseTimer = schedule(() => { if (!disposed && !enabled && token === generation) pauseNow(); }, 1450);
     } else pauseNow();
   }
   function resumeIfEnabled() {
