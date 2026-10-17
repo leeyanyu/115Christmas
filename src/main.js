@@ -3,11 +3,14 @@ import { createWorld } from './scene/world.js';
 import { createFullscreenControl } from './integrations/fullscreen.js';
 import { createVoiceLight } from './integrations/voice-light.js';
 import { createInteractionGuide } from './integrations/interaction-guide.js';
+import { createChristmasMusic } from './integrations/christmas-music.js';
 
 const button = document.querySelector('#awaken');
 const label = document.querySelector('#button-label');
 const status = document.querySelector('#status');
 const reveal = document.querySelector('#reveal');
+const music = createChristmasMusic({ button: document.querySelector('#music-toggle'), note: document.querySelector('#music-note'),
+  urls: ['gentle-loop.mp3', 'lively-loop.mp3'].map(file => `${import.meta.env.BASE_URL}audio/${file}`) });
 const fullscreenControl = createFullscreenControl(
   document.querySelector('#fullscreen'),
   document.querySelector('main'),
@@ -32,9 +35,10 @@ try {
     document.querySelector('main').classList.add('stage-active', 'awakened');
     label.textContent = '聖誕樹正在登場';
     status.textContent = '燈光已點亮，讓聖誕樹來到舞台中央…';
-  });
+  }, (delta, turning) => music.update(delta, turning));
   button.addEventListener('click', () => {
     voice?.stop();
+    music.resetMotion();
     reveal.classList.remove('visible');
     reveal.setAttribute('aria-hidden', 'true');
     document.querySelector('main').classList.remove('awakened', 'stage-active', 'stage-settled');
@@ -44,7 +48,8 @@ try {
     world.awaken();
   });
   voice = createVoiceLight({ button: document.querySelector('#voice-toggle'), note: document.querySelector('#voice-note'),
-    meter: document.querySelector('#voice-meter'), onEnergy: amount => world.addVoiceEnergy(amount), onLevel: value => world.setVoiceLevel(value) });
+    meter: document.querySelector('#voice-meter'), onEnergy: amount => world.addVoiceEnergy(amount), onLevel: value => world.setVoiceLevel(value),
+    onListening: active => music.setListening(active) });
   guide = createInteractionGuide({ button: document.querySelector('#interaction-help'), dialog: document.querySelector('#interaction-guide'), onTheme: theme => world.setTheme(theme), onOpen: () => voice?.stop() });
   button.disabled = true;
   label.textContent = '星光正在匯聚';
@@ -55,4 +60,4 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { guide?.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { guide?.dispose(); music.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });

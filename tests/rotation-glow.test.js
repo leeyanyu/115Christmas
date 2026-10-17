@@ -35,13 +35,13 @@ test('tree rotation lights the tree and larger bulb halos, then fades', () => {
     s.tree.bulbs.forEach(b => { b.material.color.set('#F4E9D9'); b.scale.setScalar(1.15); });
     s.tree.root.rotation.y += turn; s.effect.update(.1, false, 1);
   };
-  sample(0); assert.equal(halo.visible, false);
+  sample(0); assert.equal(halo.visible, false); assert.equal(s.effect.isTurning, false);
   sample(.05); const first = halo.material.uniforms.strength.value;
-  assert.ok(first > 0 && first < 1); assert.ok(s.tree.bulbs[0].scale.x > 1.15);
+  assert.ok(first > 0 && first < 1); assert.ok(s.tree.bulbs[0].scale.x > 1.15); assert.equal(s.effect.isTurning, true);
   sample(.01); assert.ok(halo.material.uniforms.strength.value > first);
   assert.ok(s.tree.starMaterial.emissiveIntensity > .45); assert.equal(halo.visible, true);
   const peak = halo.material.uniforms.strength.value;
-  sample(0); assert.ok(halo.material.uniforms.strength.value < peak);
+  sample(0); assert.ok(halo.material.uniforms.strength.value < peak); assert.equal(s.effect.isTurning, false);
   for (let i = 0; i < 30; i++) sample(0);
   assert.equal(halo.visible, false);
   s.effect.dispose(); assert.equal(s.tree.root.getObjectByName('rotation-glow'), undefined);
@@ -62,6 +62,7 @@ test('original OrbitControls rotation also lights the tree without changing its 
   s.effect.update(.1, false, 1);
   const halo = s.tree.root.getObjectByName('rotation-glow');
   assert.ok(halo.material.uniforms.strength.value > 0);
+  assert.equal(s.effect.isTurning, true);
   assert.equal(s.tree.root.rotation.y, 0);
   s.effect.dispose();
 });

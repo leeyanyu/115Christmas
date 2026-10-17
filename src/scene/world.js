@@ -19,7 +19,7 @@ import { createCampfireParty } from './campfire-party.js';
 import { createTreeTheme } from './tree-theme.js';
 import { createContentRoot } from '../integrations/content.js';
 
-export function createWorld(canvas, onComplete, onStageStart) {
+export function createWorld(canvas, onComplete, onStageStart, onRotation = () => {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -162,6 +162,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     campfire.update(delta, camera, stage.isSettled, reducedMotion.matches, celebration.isActive);
     interaction.update(delta, renderer.getPixelRatio());
     rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
+    onRotation(delta, stage.isSettled && rotationGlow.isTurning);
     treeTheme.update(delta, reducedMotion.matches);
     visitors.update(delta, camera, stage.isSettled, reducedMotion.matches);
     gifts.update(delta, stage.isSettled, reducedMotion.matches);

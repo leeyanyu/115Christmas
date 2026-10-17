@@ -1,5 +1,5 @@
 // Local RMS analysis only: no recorder, network request, or audio output.
-export function createVoiceLight({ button, note, meter, onEnergy, onLevel = () => {} }) {
+export function createVoiceLight({ button, note, meter, onEnergy, onLevel = () => {}, onListening = () => {} }) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   let generation = 0, stream, context, source, analyser, frame, active = false;
   let elapsed = 0, noise = 0, samples = 0, level = 0, previous = 0;
@@ -10,6 +10,7 @@ export function createVoiceLight({ button, note, meter, onEnergy, onLevel = () =
     meter.parentElement?.style?.setProperty('--voice-level', String(value));
   }
   function stop(message = idleText) {
+    const wasActive = active;
     generation++; active = false;
     cancelAnimationFrame(frame);
     stream?.getTracks().forEach(track => { track.onended = null; track.stop(); });
@@ -18,10 +19,12 @@ export function createVoiceLight({ button, note, meter, onEnergy, onLevel = () =
     stream = context = source = analyser = null;
     label('用歌聲點亮'); button.setAttribute('aria-pressed', 'false');
     note.textContent = message; showLevel(0); onLevel(0);
+    if (wasActive) onListening(false);
   }
   async function start() {
     const token = ++generation;
     active = true; label('取消開啟麥克風'); button.setAttribute('aria-pressed', 'true');
+    onListening(true);
     note.textContent = '請允許使用麥克風；也可以隨時取消，繼續觸碰點亮。';
     try {
       context = new AudioContextClass();

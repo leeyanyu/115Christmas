@@ -39,7 +39,7 @@ export function createRotationGlow({ tree, controls, canvas, onGlow = () => {}, 
   halo.frustumCulled = false;
   halo.visible = false;
   tree.root.add(halo);
-  let idle = 0, held = false, glow = 0, autoTurn = 0;
+  let idle = 0, held = false, glow = 0, autoTurn = 0, turning = false;
   let rotation = tree.root.rotation.y, azimuth = controls.getAzimuthalAngle(), polar = controls.getPolarAngle();
   const wrapped = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
   const activity = () => { idle = 0; autoTurn = 0; controls.autoRotate = false; };
@@ -55,6 +55,7 @@ export function createRotationGlow({ tree, controls, canvas, onGlow = () => {}, 
   activityTarget.addEventListener('pointerup', end);
   activityTarget.addEventListener('pointercancel', end);
   return {
+    get isTurning() { return turning; },
     beforeUpdate(delta, ready, reducedMotion) {
       if (!ready || reducedMotion || held || visibilityTarget.hidden) {
         idle = 0; autoTurn = 0; controls.autoRotate = false;
@@ -78,7 +79,8 @@ export function createRotationGlow({ tree, controls, canvas, onGlow = () => {}, 
       rotation = tree.root.rotation.y;
       azimuth = controls.getAzimuthalAngle(); polar = controls.getPolarAngle();
       // Original manual orbit and automatic tree rotation share the same light feedback.
-      const target = turn > .00001 ? 1 : 0;
+      turning = turn > .00001;
+      const target = turning ? 1 : 0;
       glow = THREE.MathUtils.damp(glow, target, target ? 8 : 3, delta);
       const strength = glow * (reducedMotion ? .4 : 1);
       onGlow(strength);
@@ -94,7 +96,7 @@ export function createRotationGlow({ tree, controls, canvas, onGlow = () => {}, 
       halo.visible = strength > .005 && tree.animated.at(-1).scale.x > .99;
     },
     reset() {
-      activity(); held = false; glow = 0; halo.visible = false; onGlow(0);
+      activity(); held = false; glow = 0; turning = false; halo.visible = false; onGlow(0);
       materials.forEach(item => { item.emissiveIntensity = 0; });
       rotation = tree.root.rotation.y;
       azimuth = controls.getAzimuthalAngle(); polar = controls.getPolarAngle();

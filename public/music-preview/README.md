@@ -18,7 +18,7 @@ Files are stereo, 44.1 kHz, 128 kbps MP3. The lively version has a moderately
 higher level; generated peaks remain below full scale. Audition-page playback
 requires a user gesture, pauses other tracks, and pauses when the page hides.
 
-After musical approval, rotation detection, return-to-idle timing, a mute
-control, microphone interaction, looping, and transition timing must be
-integrated separately. In particular, music should duck or pause while the
-microphone listens so playback cannot accidentally supply the singing energy.
+The approved arrangements are now connected to the tree through
+`src/integrations/christmas-music.js`. The runtime uses dedicated loop files in
+`/audio/`; these audition recordings remain independent. Music pauses during
+microphone permission and listening so it cannot supply the singing energy.

@@ -6,6 +6,7 @@ These tools are not runtime dependencies of the website.
 """
 
 from pathlib import Path
+import argparse
 import subprocess
 import tempfile
 import wave
@@ -76,7 +77,7 @@ def add(track, signal, when, volume, pan=0):
     track[start:start + length, 1] += signal[:length] * volume * np.sin(angle)
 
 
-def render(lively):
+def render(lively, loop=False):
     bpm = 132 if lively else 76
     beat = 60 / bpm
     length = 64 * beat
@@ -124,17 +125,27 @@ def render(lively):
     for seconds, gain in [(.079, .14), (.131, .105), (.229, .075), (.367, .045)]:
         delay = round(seconds * RATE)
         track[delay:] += dry[:-delay, ::-1] * gain
+    if loop:
+        # Remove the preview's leading silence, and carry the final note and
+        # room reflections into the next first bar instead of inserting a gap.
+        start = round(.12 * RATE)
+        frames = round(length * RATE)
+        body = track[start:start + frames].copy()
+        tail = track[start + frames:]
+        body[:len(tail)] += tail
+        track = body
     rms = np.sqrt(np.mean(track ** 2))
     target_rms = .100 if lively else .058
     track *= min(target_rms / rms, .82 / np.max(np.abs(track)))
-    fade_in = round(.08 * RATE)
-    fade_out = round(1.2 * RATE)
-    track[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
-    track[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None]
+    if not loop:
+        fade_in = round(.08 * RATE)
+        fade_out = round(1.2 * RATE)
+        track[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
+        track[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None]
     return track, beat
 
 
-def export(name, samples):
+def export(name, samples, output=OUTPUT):
     with tempfile.TemporaryDirectory() as temporary:
         wav = Path(temporary) / 'render.wav'
         with wave.open(str(wav), 'wb') as file:
@@ -145,12 +156,22 @@ def export(name, samples):
         subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', str(wav),
                         '-codec:a', 'libmp3lame', '-b:a', '128k', '-ar', str(RATE),
                         '-metadata', 'artist=GJ Christmas 2026', '-metadata', 'title=' + name,
-                        str(OUTPUT / (name + '.mp3'))], check=True)
+                        str(output / (name + '.mp3'))], check=True)
     print(f'{name}: {len(samples) / RATE:.1f}s, peak {np.max(np.abs(samples)):.3f}, '
           f'RMS {20 * np.log10(np.sqrt(np.mean(samples ** 2))):.1f} dBFS')
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--loops-only', action='store_true', help='Render the approved website loops without changing auditions')
+    args = parser.parse_args()
+    if args.loops_only:
+        output = OUTPUT.parent / 'audio'
+        output.mkdir(parents=True, exist_ok=True)
+        for lively, name in [(False, 'gentle-loop'), (True, 'lively-loop')]:
+            samples, _ = render(lively, loop=True)
+            export(name, samples, output)
+        return
     OUTPUT.mkdir(parents=True, exist_ok=True)
     gentle, slow_beat = render(False)
     lively, fast_beat = render(True)
