@@ -58,6 +58,7 @@ export function createTreeGifts(tree) {
     ground(gift);
   }
   return {
+    get isMoving() { return root.visible && gifts.some(gift => gift.phase === 'entering' || gift.phase === 'exiting'); },
     get targets() { return root.visible ? gifts.filter(gift => gift.phase === 'resting' && gift.group.visible).map(gift => gift.group) : []; },
     // Moving gifts still block rays, so a second tap cannot click the tree
     // through a present that is already on its way out.

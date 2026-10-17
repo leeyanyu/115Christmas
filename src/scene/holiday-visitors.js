@@ -1,11 +1,13 @@
 import { createGingerbread } from './gingerbread.js';
+import * as THREE from 'three';
 
 export function createHolidayVisitors(tree, { random = Math.random, onDrop = () => {} } = {}) {
   // Exactly two actors are built once; subsequent casts reuse their resources.
   const ginger = createGingerbread(tree, { autoCycle: false, linger: 6.5 });
   const candy = createGingerbread(tree, { kind: 'candy-cane', autoCycle: false, homeAngle: -2.65, homeHeight: 2.35, entrySide: 1, linger: 8 });
   const actors = [ginger, candy], combinations = [[ginger], [candy], [ginger, candy]];
-  let active = [ginger], bag = [], previous = 0, wait = -1, secondDelay = -1, pairSide = -1, playable = false, reduced = false;
+  const localCamera = new THREE.Vector3();
+  let active = [ginger], bag = [], previous = 0, wait = -1, secondDelay = -1, pairSide = -1, playable = false, reduced = false, paused = false;
   function nextCast(camera) {
     if (!bag.length) bag = [0, 1, 2];
     let index = Math.min(bag.length - 1, Math.floor(Math.max(0, random()) * bag.length));
@@ -17,12 +19,24 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
   }
   function reset() {
     actors.forEach(actor => actor.reset()); candy.hide();
-    active = [ginger]; bag = []; previous = 0; wait = secondDelay = -1; playable = false;
+    active = [ginger]; bag = []; previous = 0; wait = secondDelay = -1; playable = paused = false;
   }
   reset();
   return {
-    get targets() { return actors.filter(actor => actor.root.visible).map(actor => actor.root); },
-    get isPerforming() { return wait >= 0 || secondDelay >= 0 || active.some(actor => !actor.isAway && actor.isPerforming); },
+    get targets() { return paused ? [] : actors.filter(actor => actor.root.visible).map(actor => actor.root); },
+    get isPerforming() { return paused || wait >= 0 || secondDelay >= 0 || active.some(actor => !actor.isAway && actor.isPerforming); },
+    canGather(camera) {
+      if (paused || secondDelay >= 0) return false;
+      if (active.every(actor => actor.isAway)) return true;
+      if (active.some(actor => actor.isPerforming)) return false;
+      tree.root.updateWorldMatrix(true, false); localCamera.copy(camera.position); tree.root.worldToLocal(localCamera);
+      return active.every(actor => {
+        const p = actor.root.position;
+        return (p.x * localCamera.x + p.z * localCamera.z) / Math.max(.01, Math.hypot(p.x, p.z) * Math.hypot(localCamera.x, localCamera.z)) < .15;
+      });
+    },
+    beginParty() { paused = true; playable = false; actors.forEach(actor => { actor.root.visible = false; }); },
+    endParty() { paused = false; playable = false; actors.forEach(actor => actor.hide()); active = actors; wait = 4; secondDelay = -1; },
     tap(object) {
       while (object && !object.userData.holidayCharacter) object = object.parent;
       const actor = actors.find(item => item.root === object);
@@ -31,6 +45,7 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
       return true;
     },
     update(delta, camera, ready, reducedMotion) {
+      if (paused) { playable = false; actors.forEach(actor => { actor.root.visible = false; }); return; }
       playable = ready; reduced = reducedMotion;
       if (!ready) { actors.forEach(actor => actor.update(delta, camera, false, reducedMotion)); return; }
       if (reducedMotion) {

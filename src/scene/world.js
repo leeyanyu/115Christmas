@@ -15,6 +15,7 @@ import { createTreeGreeting } from './tree-greeting.js';
 import { createTreeCelebration } from './tree-celebration.js';
 import { createHolidayVisitors } from './holiday-visitors.js';
 import { createTreeGifts } from './tree-gifts.js';
+import { createCampfireParty } from './campfire-party.js';
 import { createTreeTheme } from './tree-theme.js';
 import { createContentRoot } from '../integrations/content.js';
 
@@ -79,14 +80,14 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const gratitudePrompt = createGratitudePrompt(document.querySelector('#gratitude'), reducedMotion);
   const greeting = createTreeGreeting({ canvas, camera, tree, element: document.querySelector('#reveal') });
-  let celebration;
+  let celebration, campfire;
   const gratitude = createGratitudeLight({ tree, onChange: state => {
     gratitudePrompt.show(state);
     if (state.phase === 'blooming') celebration?.start(reducedMotion.matches);
   } });
   const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
-    visitorTargets: () => [...visitors.targets, ...gifts.hitTargets],
-    onVisitorTap: object => object.userData.holidayGift ? gifts.tap(object, camera) : visitors.tap(object),
+    visitorTargets: () => [...visitors.targets, ...gifts.hitTargets, ...(campfire?.targets ?? [])],
+    onVisitorTap: object => object.userData.campfireGuest ? campfire.tap(object) : object.userData.holidayGift ? gifts.tap(object, camera) : visitors.tap(object),
     onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
     onReward: message => {
       document.querySelector('#status').textContent = message;
@@ -94,7 +95,22 @@ export function createWorld(canvas, onComplete, onStageStart) {
     } });
   const atmosphere = createRotationAtmosphere(canvas);
   const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: atmosphere.update });
-  celebration = createTreeCelebration({ tree, canvas, controls, onStart: () => interaction.celebrate() });
+  celebration = createTreeCelebration({ tree, canvas, controls, onStart: () => { campfire?.stop(); interaction.celebrate(); } });
+  const constrained = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 8) <= 4;
+  campfire = createCampfireParty({ tree, canvas, controls, capacity: constrained ? 2 : 4,
+    canStart: camera => !gifts.isMoving && visitors.canGather(camera),
+    onStart: () => {
+      visitors.beginParty();
+      const message = '聖誕營火晚會開始了！薑餅人與拐杖糖來跳舞 ✧';
+      document.querySelector('#status').textContent = message;
+      if (window.innerWidth <= 700) gratitudePrompt.announce(message);
+    },
+    onEnd: () => {
+      visitors.endParty();
+      document.querySelector('#status').textContent = '輕轉聖誕樹，等待下一份悄悄靠近的驚喜 ✧';
+    },
+    onSpark: () => interaction.starlight(),
+  });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
   // Observers run after animation callbacks. Never resize/clear a WebGL buffer
@@ -135,7 +151,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     previous = now;
     if (document.hidden) return;
     time += delta;
-    rotationGlow.beforeUpdate(delta, stage.isSettled && !celebration.isActive && !visitors.isPerforming, reducedMotion.matches);
+    rotationGlow.beforeUpdate(delta, stage.isSettled && !celebration.isActive && !campfire.isActive && !visitors.isPerforming, reducedMotion.matches);
     celebration.update(delta, stage.isSettled, reducedMotion.matches);
     controls.update(delta);
     zoomOrbit.update(delta, reducedMotion.matches, stage.isSettled);
@@ -144,6 +160,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     stage.update(time, reducedMotion.matches);
     // Any buffer allocation must be followed by a render in the same frame.
     syncRendererSize();
+    campfire.update(delta, camera, stage.isSettled, reducedMotion.matches, celebration.isActive);
     interaction.update(delta, renderer.getPixelRatio());
     rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
     treeTheme.update(delta, reducedMotion.matches);
@@ -161,7 +178,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
     setTheme: theme => { treeTheme.set(theme); if (theme === 'snow') interaction.snowfall(); },
     addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
     setVoiceLevel: value => gratitude.setVoiceLevel(value),
-    awaken: () => { gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { campfire.reset(); gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -173,6 +190,7 @@ export function createWorld(canvas, onComplete, onStageStart) {
       gratitude.dispose();
       gratitudePrompt.dispose();
       greeting.dispose();
+      campfire.dispose();
       visitors.dispose();
       gifts.dispose();
       treeTheme.dispose();
