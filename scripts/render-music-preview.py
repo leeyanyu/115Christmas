@@ -133,7 +133,7 @@ def render(lively, loop=False, separate=False):
                 if bar % 2:
                     phrase.insert(0, (1.5, chord[0] + 24, .45))
                 for offset, pitch, beats in phrase:
-                    add(horns, tone(pitch, beats * beat, 'trumpet'), start + offset * beat, .062, -.22)
+                    add(horns, tone(pitch, beats * beat, 'trumpet'), start + offset * beat, .22, -.22)
         else:
             for i, pitch in enumerate(chord):
                 add(backing, tone(pitch, beat * 3.65, 'pad'), start, .022, [-.45, 0, .45][i])

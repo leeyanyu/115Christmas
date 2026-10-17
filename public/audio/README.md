@@ -9,7 +9,8 @@ Both stems use the approved fast arrangement at **132 BPM**, with the same
 
 - `melody-loop.mp3`: the bell/piano melody, always audible when music is enabled.
 - `rhythm-brass-loop.mp3`: bass, offbeat chords, sleigh bells, brush, soft kick
-  and short, rounded trumpet responses;
+  and prominent trumpet responses (trumpet gain increased from .062 to .22,
+  approximately +11 dB, without renormalizing the melody);
   audible only during rotation and its short release.
 
 There is no slow arrangement in the tree's playback. Rotating does not restart,
@@ -22,8 +23,10 @@ NumPy, ffmpeg). Browser playback needs no additional package or external service
 The page enables music by default and attempts autoplay while loading audio.
 If the browser blocks playback (including a pending `AudioContext.resume()`),
 preparation still finishes, and the first pointer/touch/keyboard gesture retries.
-The music button is available during the opening and can turn music off even
-before playback is unlocked. Later gestures never override this choice.
+The music button stays hidden throughout the opening and camera movement; it
+appears with the other controls only when the tree reaches center stage
+(`.stage-settled`). Music's autoplay/gesture behavior is independent of this
+visual timing. Later gestures never override a visitor's mute choice.
 Two Web Audio sources and
 their gain nodes are reused across rotations and mute/resume. A 1.2-second fade
 adds/removes accompaniment; a .75-second hold avoids switching on tiny drag pauses.
