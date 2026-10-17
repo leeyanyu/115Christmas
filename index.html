@@ -22,6 +22,13 @@
       <div id="scene" aria-label="可旋轉的立體聖誕樹"><canvas id="tree-canvas" tabindex="0" aria-label="聖誕樹，拖曳旋轉；手機雙指旋轉縮放，電腦可同時拖曳與滾輪縮放"></canvas><p class="gesture"><span>↔</span> 拖曳＋滾輪 · 雙指旋轉縮放</p></div>
       <div id="reveal" class="reveal" aria-hidden="true">Light Up <em>Christmas 2026</em></div>
       <div id="stage-dock" aria-hidden="true"></div>
+      <button id="interaction-help" class="help-button" type="button" aria-label="互動玩法與聖誕樹配色" title="互動玩法與配色" aria-haspopup="dialog">?</button>
+      <dialog id="interaction-guide" aria-labelledby="guide-title">
+        <button class="guide-close" data-close-guide type="button" aria-label="關閉說明">×</button>
+        <p class="guide-eyebrow">A LITTLE WONDER</p><h2 id="guide-title">冬夜的小秘密</h2>
+        <dl><dt>輕觸，累積祝福</dt><dd>點樹面看星光，集滿 12 份祝福，讓樹旋轉、綻光、散星與下雪。</dd><dt>旋轉，尋找驚喜</dt><dd>快速拖曳可召喚星星；轉到背面，找找微笑的薑餅人。</dd><dt>連點星星，迎接雪花</dt><dd>連點樹頂星星三下，就能喚來一場雪。</dd><dt>用歌聲點亮</dt><dd>按麥克風，先安靜一秒，再唱歌或哼唱。聲音只在裝置內分析，不錄音、不上傳。</dd><dt>靠近看看</dt><dd>手機雙指、電腦滾輪可縮放。拖曳旋轉，欣賞不同角度。</dd></dl>
+        <fieldset><legend>今晚，想看哪一種冬夜？</legend><div class="theme-options"><button type="button" data-tree-theme="classic" aria-pressed="true">經典綠</button><button type="button" data-tree-theme="snow" aria-pressed="false">雪白</button><button type="button" data-tree-theme="aurora" aria-pressed="false">柔和極光</button></div></fieldset>
+      </dialog>
       <p id="gratitude" class="gratitude" role="status" aria-live="polite" aria-atomic="true">輕觸聖誕樹，讓每一份感恩慢慢發光</p>
       <aside class="voice-panel" aria-label="聖誕節大聲唱，把感恩唱出來">
         <button id="voice-toggle" type="button" aria-label="用歌聲點亮" title="用歌聲點亮" aria-pressed="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1M12 18v3M9 21h6"/></svg></button>

@@ -67,6 +67,9 @@ main.stage-settled .gratitude{bottom:calc(81px + env(safe-area-inset-bottom));li
 @media(max-width:700px){main.stage-settled .reveal{top:90px;bottom:auto;left:20%;right:20%;width:60%;font-size:9px;letter-spacing:1px}main.stage-settled .reveal em{font-size:15px;margin-top:3px}}
 @media(max-height:520px){main.stage-settled .reveal{left:4%;right:auto;top:90px;bottom:auto;width:auto;text-align:left;font-size:9px}main.stage-settled .reveal em{font-size:16px}}
 .replay-icon{display:none}
+.help-button{display:none;position:fixed;z-index:7;right:6%;bottom:96px;width:46px;min-height:46px;padding:0;justify-content:center;border:1px solid #d7c38f66;border-radius:50%;background:#0c1d2bd9;color:#ead4a2;font:23px Georgia,serif;letter-spacing:0}.stage-settled .help-button{display:flex}.help-button:hover{background:#1c3540;box-shadow:none}
+#interaction-guide{width:min(440px,calc(100vw - 40px));max-height:calc(100svh - 56px);overflow:auto;padding:30px;border:1px solid #d7c38f66;border-radius:18px;background:#102333;color:#e5dac4;box-shadow:0 24px 80px #0006;font-family:"Noto Serif TC",serif}#interaction-guide::backdrop{background:#030b17aa;backdrop-filter:blur(5px)}.guide-close{position:absolute;right:12px;top:12px;width:36px;min-height:36px;padding:0;justify-content:center;background:transparent;border:0;color:#d7c38f;font:24px Georgia}.guide-eyebrow{font:8px Arial;letter-spacing:3px;color:#b5a179;margin:0 0 12px}#guide-title{font-size:21px;font-weight:400;color:#ead4a2;margin:0 0 22px}#interaction-guide dt{font-size:12px;color:#ead4a2;margin-top:17px}#interaction-guide dd{font:11px/1.9 Arial,sans-serif;color:#b5bdc1;margin:5px 0 0}#interaction-guide fieldset{padding:20px 0 0;margin:24px 0 0;border:0;border-top:1px solid #d7c38f33}#interaction-guide legend{font-size:11px;padding:0 8px;color:#ccb989}.theme-options{display:flex;gap:8px}.theme-options button{width:auto;flex:1;min-height:40px;padding:0 6px;justify-content:center;gap:0;background:transparent;border-color:#d7c38f55;border-radius:7px;color:#d7c38f;font-size:11px;letter-spacing:0}.theme-options button[aria-pressed=true]{background:#d7c38f;color:#102333}
+@media(max-width:700px){#interaction-guide{padding:25px}}
 @media(min-width:701px){
   main{--stage-dock-height:0px}
   #stage-dock{background:none}
@@ -96,4 +99,11 @@ main.stage-settled .gratitude{bottom:calc(81px + env(safe-area-inset-bottom));li
   main.stage-settled .reveal{top:var(--greeting-top,150px);left:7%;right:7%;width:86%;font-family:Georgia,"Times New Roman",serif;font-synthesis:style;font-size:14px;line-height:1.2;letter-spacing:2px;text-align:center;transition:opacity .5s}
   main.stage-settled .reveal em{font-size:clamp(24px,6.7vw,28px);font-style:italic;font-weight:400;line-height:1.2;margin-top:5px;white-space:nowrap}
   main.stage-settled .reveal.visible{opacity:var(--greeting-opacity,1)}
+}
+@media(max-width:700px) and (min-height:521px){
+  .stage-settled .help-button{left:calc(50% + 78px);right:auto;bottom:calc(28px + env(safe-area-inset-bottom))}
+  main.stage-active .invitation #awaken{left:calc(50% - 126px)}
+  .stage-settled .voice-panel{left:calc(50% - 64px);gap:12px}
+  .voice-wave{width:52px}
+  .voice-panel::before{left:-8px}
 }

@@ -13,6 +13,8 @@ import { createGratitudeLight } from './gratitude-light.js';
 import { createGratitudePrompt } from '../integrations/gratitude-prompt.js';
 import { createTreeGreeting } from './tree-greeting.js';
 import { createTreeCelebration } from './tree-celebration.js';
+import { createGingerbread } from './gingerbread.js';
+import { createTreeTheme } from './tree-theme.js';
 import { createContentRoot } from '../integrations/content.js';
 
 export function createWorld(canvas, onComplete, onStageStart) {
@@ -48,6 +50,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
   const contentRoot = createContentRoot();
   scene.add(contentRoot);
   const tree = createTree();
+  const gingerbread = createGingerbread(tree);
+  const treeTheme = createTreeTheme(tree);
   contentRoot.add(tree.root);
   const ribbons = createRibbons(() => {
     const rect = canvas.getBoundingClientRect();
@@ -132,6 +136,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
     syncRendererSize();
     interaction.update(delta, renderer.getPixelRatio());
     rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
+    treeTheme.update(delta, reducedMotion.matches);
+    gingerbread.update(delta, camera, stage.isSettled, reducedMotion.matches);
     if (stage.isSettled) {
       gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
       gratitudePrompt.update(delta);
@@ -141,9 +147,10 @@ export function createWorld(canvas, onComplete, onStageStart) {
   }
   frame = requestAnimationFrame(animate);
   return {
+    setTheme: theme => { treeTheme.set(theme); if (theme === 'snow') interaction.snowfall(); },
     addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
     setVoiceLevel: value => gratitude.setVoiceLevel(value),
-    awaken: () => { celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { gingerbread.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -155,6 +162,8 @@ export function createWorld(canvas, onComplete, onStageStart) {
       gratitude.dispose();
       gratitudePrompt.dispose();
       greeting.dispose();
+      gingerbread.dispose();
+      treeTheme.dispose();
       zoomOrbit.dispose();
       controls.dispose();
       ribbons.dispose();

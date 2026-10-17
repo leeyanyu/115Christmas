@@ -2,6 +2,7 @@ import './style.css';
 import { createWorld } from './scene/world.js';
 import { createFullscreenControl } from './integrations/fullscreen.js';
 import { createVoiceLight } from './integrations/voice-light.js';
+import { createInteractionGuide } from './integrations/interaction-guide.js';
 
 const button = document.querySelector('#awaken');
 const label = document.querySelector('#button-label');
@@ -14,6 +15,7 @@ const fullscreenControl = createFullscreenControl(
 );
 let world;
 let voice;
+let guide;
 try {
   world = createWorld(document.querySelector('#tree-canvas'), () => {
     reveal.classList.add('visible');
@@ -43,6 +45,7 @@ try {
   });
   voice = createVoiceLight({ button: document.querySelector('#voice-toggle'), note: document.querySelector('#voice-note'),
     meter: document.querySelector('#voice-meter'), onEnergy: amount => world.addVoiceEnergy(amount), onLevel: value => world.setVoiceLevel(value) });
+  guide = createInteractionGuide({ button: document.querySelector('#interaction-help'), dialog: document.querySelector('#interaction-guide'), onTheme: theme => world.setTheme(theme), onOpen: () => voice?.stop() });
   button.disabled = true;
   label.textContent = '星光正在匯聚';
   status.textContent = '讓彩帶穿過冬夜，喚醒每一片枝葉…';
@@ -52,4 +55,4 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { guide?.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
