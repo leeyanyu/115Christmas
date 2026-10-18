@@ -33,25 +33,22 @@ export function createChristmasMusic({ button, note, urls, levels = urls.map(() 
     else { parameter.cancelScheduledValues(now); parameter.setValueAtTime(value, now); }
     return { now, value };
   }
-  function ramp(parameter, value, seconds) {
-    const { now } = holdParameter(parameter);
-    parameter.linearRampToValueAtTime(value, now + seconds);
-  }
-  function fadeOut(parameter, seconds) {
+  function fadeTo(parameter, target, seconds) {
     const { now, value: start } = holdParameter(parameter);
-    // A raised cosine eases into the fade and leaves a quiet, smooth tail.
+    // A raised cosine makes both the arrival and the quiet tail gradual.
     // Audio-clock ramps keep it smooth even if rendering slows on a phone.
     // Holding/cancelling these ramps also lets a new rotation resume mid-fade.
     for (let step = 1; step <= 32; step++) {
       const progress = step / 32;
-      parameter.linearRampToValueAtTime(start * (1 + Math.cos(Math.PI * progress)) / 2, now + seconds * progress);
+      const amount = (1 - Math.cos(Math.PI * progress)) / 2;
+      parameter.linearRampToValueAtTime(start + (target - start) * amount, now + seconds * progress);
     }
   }
   function mix() {
     if (!ready) return;
     layers.slice(1).forEach((layer, index) => {
-      if (mood === 'lively') ramp(layer.gain.gain, levels[index + 1], 1.2);
-      else fadeOut(layer.gain.gain, 4.2);
+      if (mood === 'lively') fadeTo(layer.gain.gain, levels[index + 1], 3);
+      else fadeTo(layer.gain.gain, 0, 4.2);
     });
   }
   function setMood(next) {
@@ -68,7 +65,7 @@ export function createChristmasMusic({ button, note, urls, levels = urls.map(() 
   function applyPlayback() {
     if (disposed) return;
     if (!enabled || listening || !visible()) pauseNow();
-    else if (ready && context?.state === 'running') ramp(master.gain, masterVolume, .6);
+    else if (ready && context?.state === 'running') fadeTo(master.gain, masterVolume, 2.4);
     sync();
   }
   function fail(token) {
@@ -89,13 +86,16 @@ export function createChristmasMusic({ button, note, urls, levels = urls.map(() 
       layers = buffers.map((buffer, index) => {
         const source = context.createBufferSource(), gain = context.createGain();
         source.buffer = buffer; source.loop = true; source.loopEnd = loopEnd;
-        gain.gain.value = index === 0 || mood === 'lively' ? levels[index] : 0;
+        gain.gain.value = index === 0 ? levels[index] : 0;
         source.connect(gain); gain.connect(compressor || master);
         return { source, gain };
       });
       const start = context.currentTime + .03;
       layers.forEach(layer => layer.source.start(start));
       ready = true;
+      // Rotation may already be in progress while samples download. Even then,
+      // accompaniment starts silent and gets the same audible fade-in.
+      if (mood === 'lively') mix();
     })();
     try { await preparing; } finally { preparing = undefined; }
   }
@@ -133,7 +133,7 @@ export function createChristmasMusic({ button, note, urls, levels = urls.map(() 
     if (enabled) { void activate(token); return; }
     unschedule(pauseTimer);
     if (context?.state === 'running') {
-      fadeOut(master.gain, 1.4);
+      fadeTo(master.gain, 0, 1.4);
       pauseTimer = schedule(() => { if (!disposed && !enabled && token === generation) pauseNow(); }, 1450);
     } else pauseNow();
   }

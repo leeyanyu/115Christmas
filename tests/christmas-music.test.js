@@ -62,7 +62,7 @@ test('music waits for a gesture, keeps the melody continuous, and fades synchron
   s.music.update(.1, true);
   assert.equal(s.button.dataset.musicMood, 'lively');
   assert.equal(melody.gain.events.length, 0, 'rotation must not interrupt or fade the melody');
-  assert.deepEqual(rhythm.gain.events.at(-1), ['ramp', 1, 11.2]);
+  assert.deepEqual(rhythm.gain.events.at(-1), ['ramp', 1, 13]);
   const eventCount = rhythm.gain.events.length;
   for (let frame = 0; frame < 120; frame++) s.music.update(1 / 60, true);
   assert.equal(rhythm.gain.events.length, eventCount, 'one movement should not continually reschedule audio automation');
@@ -100,7 +100,8 @@ test('stopping eases accompaniment into a long tail and a new turn cancels that 
   assert.equal(master.gain.value, .7, 'rotation release must leave the master and lead playing');
   context.currentTime = 13; rhythm.gain.value = .85;
   s.music.update(.1, true);
-  assert.deepEqual(rhythm.gain.events.slice(-2), [['hold', 13], ['ramp', 1, 14.2]]);
+  assert.deepEqual(rhythm.gain.events.at(-33), ['hold', 13]);
+  assert.deepEqual(rhythm.gain.events.at(-1), ['ramp', 1, 16]);
   s.click();
   assert.ok(s.delays.at(-1) >= 1400, 'suspension must wait until the music-off fade is finished');
   assert.equal(context.state, 'running');
@@ -109,41 +110,70 @@ test('stopping eases accompaniment into a long tail and a new turn cancels that 
   s.music.dispose();
 });
 
+test('music and rotation both arrive gradually, including when rotation begins during loading', async () => {
+  let finish;
+  const s = setup(() => new Promise(resolve => { finish ??= []; finish.push(resolve); }));
+  s.click();
+  s.music.update(.1, true);
+  finish.forEach(resolve => resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(2) }));
+  await s.flush();
+  const [master, melody, rhythm] = s.contexts[0].gains;
+  const masterRise = master.gain.events.filter(([type]) => type === 'ramp');
+  const rhythmRise = rhythm.gain.events.filter(([type]) => type === 'ramp');
+  for (const [points, target, end] of [[masterRise, .7, 12.4], [rhythmRise, 1, 13]]) {
+    assert.ok(points.length > 2, 'fade-in needs a gentle shaped arrival');
+    assert.ok(points[0][1] > 0 && points[0][1] < target * .01, 'sound must start quietly');
+    assert.ok(points.every(([, gain, time], index) => index === 0
+      || (gain > points[index - 1][1] && time > points[index - 1][2])), 'arrival must increase progressively');
+    assert.ok(points.some(([, gain]) => gain > target * .1 && gain < target * .2));
+    assert.ok(points.some(([, gain]) => Math.abs(gain - target * .5) < .00001), 'halfway should still have room to grow');
+    assert.deepEqual(points.at(-1), ['ramp', target, end]);
+  }
+  assert.equal(melody.gain.events.length, 0, 'the master owns the arrival; rotation never restarts the piano');
+  // A real AudioParam would now be partway through its scheduled arrival.
+  s.contexts[0].currentTime = 11; rhythm.gain.value = .25;
+  s.music.update(1, false);
+  const release = rhythm.gain.events.slice(-32);
+  assert.ok(release[0][1] < .25 && release[0][1] > .24, 'stopping a brief turn must fade from its current partial volume');
+  assert.deepEqual(release.at(-1), ['ramp', 0, 15.2]);
+  s.music.dispose();
+});
+
 test('approved audition mix preserves all six original samples, gains and shared compression', async () => {
   const { tracks, masterVolume, compression } = christmasMusicMix;
   assert.deepEqual(tracks.map(track => [track.file, track.level]), [
-    ['music-lab/audio/crystal-round.mp3', .4],
-    ['music-lab/audio/electronic-drums.mp3', 1.2],
-    ['music-lab/audio/piano-rhythm.mp3', .9],
-    ['music-lab/audio/bass.mp3', 1.2],
-    ['music-lab/audio/sleigh-bells.mp3', .25],
-    ['music-lab/audio/trumpet.mp3', .3],
+    ['music-lab/audio/crystal-clear.mp3', 1],
+    ['music-lab/audio/electronic-drums.mp3', .7],
+    ['music-lab/audio/piano-rhythm.mp3', .2],
+    ['music-lab/audio/bass.mp3', .6],
+    ['music-lab/audio/sleigh-bells.mp3', .1],
+    ['music-lab/audio/trumpet.mp3', .15],
   ]);
   const s = setup(undefined, { urls: tracks.map(track => track.file), levels: tracks.map(track => track.level),
     masterVolume, compression });
   s.click(); await s.flush();
   const context = s.contexts[0], [master, ...channels] = context.gains;
   assert.deepEqual(s.requests.map(([url]) => url), tracks.map(track => track.file));
-  assert.equal(master.gain.value, .5, 'the selected 50% master is applied after compression');
+  assert.equal(master.gain.value, 1, 'the selected 100% master is applied after compression');
   assert.equal(master.target, context.destination);
   assert.equal(context.compressor.target, master);
   assert.deepEqual(Object.fromEntries(Object.keys(compression).map(key => [key, context.compressor[key].value])),
     { threshold: -6, knee: 6, ratio: 8, attack: .003, release: .16 });
   assert.ok(channels.every(channel => channel.target === context.compressor));
-  assert.deepEqual(channels.map(channel => channel.gain.value), [.4, 0, 0, 0, 0, 0]);
+  assert.deepEqual(channels.map(channel => channel.gain.value), [1, 0, 0, 0, 0, 0]);
   assert.ok(context.sources.every((source, index) => source.target === channels[index]
     && source.loop && source.loopEnd === 15 && source.started === 10.03));
   s.music.update(.1, true);
-  assert.deepEqual(channels.map(channel => channel.gain.value), [.4, 1.2, .9, 1.2, .25, .3]);
-  assert.ok(channels.slice(1).every(channel => channel.gain.events.at(-1)[2] === 11.2),
+  assert.deepEqual(channels.map(channel => channel.gain.value), [1, .7, .2, .6, .1, .15]);
+  assert.ok(channels.slice(1).every(channel => channel.gain.events.at(-1)[2] === 13),
     'every accompaniment layer uses the same fade clock');
   assert.deepEqual(channels[0].gain.events, [], 'the crystal piano must continue through rotation');
   s.music.update(1, false);
-  assert.deepEqual(channels.map(channel => channel.gain.value), [.4, 0, 0, 0, 0, 0]);
+  assert.deepEqual(channels.map(channel => channel.gain.value), [1, 0, 0, 0, 0, 0]);
   s.music.setListening(true);
   assert.equal(master.gain.value, 0); assert.equal(context.state, 'suspended');
   s.music.setListening(false); await s.flush();
-  assert.equal(master.gain.value, .5);
+  assert.equal(master.gain.value, 1);
   s.click(); s.runTimers(); s.click(); await s.flush();
   assert.equal(s.requests.length, 6); assert.equal(context.sources.length, 6);
   s.music.dispose();
@@ -171,8 +201,10 @@ test('browsers without cancelAndHoldAtTime keep the current gain when replacing 
   rhythm.value = .65;
   s.contexts[0].currentTime = 13;
   s.music.update(.1, true);
-  assert.deepEqual(rhythm.events.slice(-3), [['cancel', 13], ['set', .65, 13], ['ramp', 1, 14.2]],
+  assert.deepEqual(rhythm.events.slice(-34, -32), [['cancel', 13], ['set', .65, 13]],
     'resuming must start from the audible mid-fade level rather than zero');
+  assert.ok(rhythm.events.at(-32)[1] > .65 && rhythm.events.at(-32)[1] < .66);
+  assert.deepEqual(rhythm.events.at(-1), ['ramp', 1, 16]);
   s.music.dispose();
 });
 
