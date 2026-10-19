@@ -72,7 +72,8 @@ test('side greeting jumps into view, faces the viewer, waves its own arm and cli
     assert.ok(face.dot(toward) > .8, 'the viewer should see the face while it waves');
     actor.update(3.1, camera, true, false); assert.equal(actor.greeting, null);
     assert.deepEqual(body.attributes.position.array, rest, 'the solid cookie must return to its original shape');
-    for (let i = 0; i < 50; i++) actor.update(.1, camera, true, false);
+    for (let i = 0; i < 100 && !actor.isClimbing; i++) actor.update(.1, camera, true, false);
+    assert.ok(actor.isClimbing, 'the short return hops must reach the tree');
     const base = actor.root.position.y;
     actor.update(2.7, camera, true, false);
     assert.ok(actor.root.position.y > base && actor.root.position.y < 1.95, 'the climb must still be progressing after 2.7 seconds');
@@ -81,6 +82,64 @@ test('side greeting jumps into view, faces the viewer, waves its own arm and cli
     const localCamera = tree.root.worldToLocal(camera.position.clone());
     assert.ok(actor.root.position.x * localCamera.x + actor.root.position.z * localCamera.z < 0, 'the final perch must be behind the tree for this viewer');
     assert.ok(camera.position.equals(cameraPosition)); assert.equal(tree.root.rotation.y, treeAngle);
+    actor.dispose();
+  }
+});
+
+test('after waving, every return hop lands and compresses, then each climbing step crouches and rebounds', () => {
+  for (const aspect of [1.5, .5]) {
+    const { tree, camera } = setup(aspect);
+    const actor = createGingerbread(tree, { canGreet: true, autoCycle: false });
+    const tick = seconds => actor.update(seconds, camera, true, false);
+    tick(.01); assert.ok(actor.greet(camera, -1));
+    tick(2.1); assert.equal(actor.greeting, actor.root);
+    tick(3.71); assert.equal(actor.greeting, null);
+    const size = actor.root.scale.z;
+    let compressions = 0, jumps = 0, crouching = false, airborne = false;
+    let previous = actor.root.position.clone();
+    for (let frame = 0; frame < 700 && !actor.isClimbing; frame++) {
+      tick(.01);
+      const feet = actor.root.position.y - .43 * actor.root.scale.y;
+      const grounded = Math.abs(feet) < .00001;
+      assert.ok(feet >= -.00001, 'return hops must not sink below the ground');
+      if (grounded && actor.root.scale.y < size * .9) {
+        if (!crouching) compressions++;
+        crouching = true;
+        assert.ok(actor.root.scale.x > size * 1.06, 'ground contact must widen the compressed cookie');
+        assert.ok(Math.hypot(actor.root.position.x - previous.x, actor.root.position.z - previous.z) < .00001,
+          'the return must pause its horizontal travel during each grounded crouch');
+      } else crouching = false;
+      if (feet > size * .1) {
+        if (!airborne) jumps++;
+        airborne = true;
+      } else if (grounded) airborne = false;
+      previous.copy(actor.root.position);
+    }
+    assert.ok(actor.isClimbing, 'the bounded return sequence must finish');
+    assert.ok(jumps >= 6 && compressions >= jumps, 'every short return jump needs its own compression');
+    assert.equal(actor.root.scale.y, size);
+
+    const initialFeet = actor.root.position.y - .43 * size;
+    tick(.1);
+    assert.ok(actor.root.scale.y < size * .78 && actor.root.scale.x > size * 1.14,
+      'the climbing crouch must be visibly deeper than the ground hops');
+    assert.ok(Math.abs(actor.root.position.y - .43 * actor.root.scale.y - initialFeet) < .00001,
+      'a climbing crouch must compress around its support point');
+    let climbingCrouches = 1, minScale = actor.root.scale.y / size, maxScale = 1;
+    crouching = true;
+    for (let frame = 0; frame < 600 && actor.isClimbing; frame++) {
+      tick(.01);
+      const scale = actor.root.scale.y / size;
+      minScale = Math.min(minScale, scale); maxScale = Math.max(maxScale, scale);
+      if (scale < .79) {
+        if (!crouching) climbingCrouches++;
+        crouching = true;
+      } else crouching = false;
+    }
+    assert.equal(climbingCrouches, 8, 'all eight climbing steps must visibly crouch');
+    assert.ok(minScale < .77 && maxScale > 1.1, 'climbing must alternate compression with upward stretch');
+    assert.equal(actor.isPerforming, false); assert.equal(actor.root.position.y, 1.95);
+    assert.equal(actor.root.scale.y, size);
     actor.dispose();
   }
 });
@@ -111,7 +170,7 @@ test('greetings respect close-ups and reuse the same solid cookie through replay
   const count = tree.root.children.length;
   for (let round = 0; round < 8; round++) {
     actor.reset(); actor.update(.1, camera, true, false); assert.ok(actor.greet(camera, round % 2 ? -1 : 1));
-    for (let i = 0; i < 160; i++) actor.update(.1, camera, true, false);
+    for (let i = 0; i < 200; i++) actor.update(.1, camera, true, false);
     assert.equal(actor.root.children[0].geometry, geometry); assert.equal(geometry.attributes.position.array, positions);
     assert.equal(actor.root.children[0].material, material); assert.equal(tree.root.children.length, count);
     assert.equal(actor.isGreetingVisit, false);
@@ -131,7 +190,7 @@ test('the entire greeting, return and slower climb stay outside the branch volum
     }));
     const body = actor.root.children[0], positions = body.geometry.attributes.position;
     const point = new THREE.Vector3(), local = new THREE.Vector3();
-    for (let frame = 0; frame < 160; frame++) {
+    for (let frame = 0; frame < 200; frame++) {
       actor.update(.1, camera, true, false); body.updateWorldMatrix(true, false);
       for (let i = 0; i < positions.count; i += 37) {
         point.fromBufferAttribute(positions, i).applyMatrix4(body.matrixWorld);
