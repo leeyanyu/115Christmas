@@ -19,6 +19,7 @@ import { createCampfireParty } from './campfire-party.js';
 import { createTreeTheme } from './tree-theme.js';
 import { createHiddenGoodness } from './hidden-goodness.js';
 import { createContentRoot } from '../integrations/content.js';
+import { createVisitorGreeting } from '../integrations/visitor-greeting.js';
 
 export function createWorld(canvas, onComplete, onStageStart, onRotation = () => {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
@@ -89,6 +90,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
   const guideDialog = document.querySelector('#interaction-guide');
   const gratitudePrompt = createGratitudePrompt(document.querySelector('#gratitude'), reducedMotion);
   const greeting = createTreeGreeting({ canvas, camera, tree, element: document.querySelector('#reveal') });
+  const visitorGreeting = createVisitorGreeting({ canvas, visitors, element: document.querySelector('#visitor-greeting') });
   let celebration, campfire;
   const gratitude = createGratitudeLight({ tree, onChange: state => {
     gratitudePrompt.show(state);
@@ -173,7 +175,8 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
     onRotation(delta, stage.isSettled && rotationGlow.isTurning);
     treeTheme.update(delta, reducedMotion.matches);
-    visitors.update(delta, camera, stage.isSettled, reducedMotion.matches);
+    visitors.update(delta, camera, stage.isSettled, reducedMotion.matches, !celebration.isActive && !guideDialog?.open);
+    visitorGreeting.update(camera, stage.isSettled && !celebration.isActive && !campfire.isActive && !guideDialog?.open);
     gifts.update(delta, stage.isSettled, reducedMotion.matches);
     hiddenGoodness.update(delta, camera, stage.isSettled && !celebration.isActive && !campfire.isActive && !guideDialog?.open, reducedMotion.matches, stage.zoomRatio);
     if (stage.isSettled) {
@@ -188,7 +191,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     setTheme: theme => { treeTheme.set(theme); if (theme === 'snow') interaction.snowfall(); },
     addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
     setVoiceLevel: value => gratitude.setVoiceLevel(value),
-    awaken: () => { hiddenGoodness.reset(); campfire.reset(); gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { visitorGreeting.reset(); hiddenGoodness.reset(); campfire.reset(); gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -200,6 +203,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
       gratitude.dispose();
       gratitudePrompt.dispose();
       greeting.dispose();
+      visitorGreeting.dispose();
       campfire.dispose();
       visitors.dispose();
       gifts.dispose();

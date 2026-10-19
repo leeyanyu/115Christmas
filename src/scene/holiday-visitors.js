@@ -3,11 +3,12 @@ import * as THREE from 'three';
 
 export function createHolidayVisitors(tree, { random = Math.random, onDrop = () => {} } = {}) {
   // Exactly two actors are built once; subsequent casts reuse their resources.
-  const ginger = createGingerbread(tree, { autoCycle: false, linger: 6.5 });
+  const ginger = createGingerbread(tree, { autoCycle: false, linger: 6.5, canGreet: true });
   const candy = createGingerbread(tree, { kind: 'candy-cane', autoCycle: false, homeAngle: -2.65, homeHeight: 2.35, entrySide: 1, linger: 8 });
   const actors = [ginger, candy], combinations = [[ginger], [candy], [ginger, candy]];
   const localCamera = new THREE.Vector3();
   let active = [ginger], bag = [], previous = 0, wait = -1, secondDelay = -1, pairSide = -1, playable = false, reduced = false, paused = false;
+  let greetingWait = 0;
   function nextCast(camera) {
     if (!bag.length) bag = [0, 1, 2];
     let index = Math.min(bag.length - 1, Math.floor(Math.max(0, random()) * bag.length));
@@ -15,15 +16,20 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
     previous = bag.splice(index, 1)[0]; active = combinations[previous];
     const pair = active.length === 2;
     if (pair) pairSide = ginger.landingScreenX(camera) < candy.landingScreenX(camera) ? -1 : 1;
-    active[0].arrive(pair ? { sameSide: true, side: pairSide } : {}); secondDelay = pair ? .55 : -1;
+    const greets = !pair && active[0] === ginger && random() < .6 && ginger.greet(camera, random() < .5 ? -1 : 1);
+    if (greets) greetingWait = 45 + random() * 35;
+    else active[0].arrive(pair ? { sameSide: true, side: pairSide } : {});
+    secondDelay = pair ? .55 : -1;
   }
   function reset() {
     actors.forEach(actor => actor.reset()); candy.hide();
     active = [ginger]; bag = []; previous = 0; wait = secondDelay = -1; playable = paused = false;
+    greetingWait = 12 + random() * 5;
   }
   reset();
   return {
     get targets() { return paused ? [] : actors.filter(actor => actor.root.visible).map(actor => actor.root); },
+    get greeting() { return paused ? null : ginger.greeting; },
     get isPerforming() { return paused || wait >= 0 || secondDelay >= 0 || active.some(actor => !actor.isAway && actor.isPerforming); },
     canGather(camera) {
       if (paused || secondDelay >= 0) return false;
@@ -44,7 +50,7 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
       if (actor.drop()) onDrop(object.userData.holidayCharacter, reduced);
       return true;
     },
-    update(delta, camera, ready, reducedMotion) {
+    update(delta, camera, ready, reducedMotion, allowGreeting = true) {
       if (paused) { playable = false; actors.forEach(actor => { actor.root.visible = false; }); return; }
       playable = ready; reduced = reducedMotion;
       if (!ready) { actors.forEach(actor => actor.update(delta, camera, false, reducedMotion)); return; }
@@ -56,7 +62,19 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
         secondDelay -= delta;
         if (secondDelay <= 0) { active[1].arrive({ sameSide: true, side: -pairSide }); secondDelay = -1; }
       }
-      actors.forEach(actor => actor.update(delta, camera, true, reducedMotion));
+      actors.forEach(actor => {
+        if (actor === ginger && actor.isGreetingVisit && !allowGreeting && !reducedMotion) return;
+        actor.update(delta, camera, true, reducedMotion);
+      });
+      if (allowGreeting && !reducedMotion) {
+        greetingWait = Math.max(0, greetingWait - delta);
+        // Surprise a waiting visitor even when they never turn to the back.
+        // Existing paired arrivals retain their separate, collision-safe lanes.
+        if (!greetingWait && wait < 0 && secondDelay < 0 && active.length === 1 && active[0] === ginger && !ginger.isPerforming) {
+          const started = ginger.greet(camera, random() < .5 ? -1 : 1);
+          greetingWait = started ? 45 + random() * 35 : 3;
+        }
+      }
       if (reducedMotion || secondDelay >= 0 || !active.every(actor => actor.isAway)) return;
       if (wait < 0) wait = 4 + random() * 2;
       else if ((wait -= delta) <= 0) { wait = -1; nextCast(camera); }

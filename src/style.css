@@ -123,3 +123,6 @@ main.stage-settled .gratitude{bottom:calc(81px + env(safe-area-inset-bottom));li
   .voice-wave{width:52px}
   .voice-panel::before{display:none}
 }
+.visitor-greeting{position:fixed;z-index:5;pointer-events:none;margin:0;padding:8px 14px;white-space:nowrap;border:1px solid #d7c38f88;border-radius:16px 16px 16px 3px;background:#102333d9;color:#f4e9d9;font:italic 21px/1.2 Georgia,serif;letter-spacing:.4px;box-shadow:0 5px 20px #030b1733;transform:translate(-50%,-100%)}
+.visitor-greeting[hidden]{display:none}
+@media(max-width:700px){.visitor-greeting{font-size:19px;padding:8px 12px}}

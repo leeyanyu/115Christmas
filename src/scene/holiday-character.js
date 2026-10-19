@@ -18,7 +18,7 @@ export function characterMaterial(options) {
   return material;
 }
 
-export function createHolidayCharacter(kind = 'gingerbread') {
+export function createHolidayCharacter(kind = 'gingerbread', { canWave = false } = {}) {
   const candy = kind === 'candy-cane';
   const cookie = characterMaterial({ color: candy ? 0xffffff : 0xb77b45, roughness: candy ? .4 : .8 });
   const icing = characterMaterial({ color: candy ? 0x654536 : 0xffedd0, roughness: .65 });
@@ -88,8 +88,34 @@ export function createHolidayCharacter(kind = 'gingerbread') {
   }
   // Golden crisp, toasted, and deep toasted; omit the pale, overbright cookie.
   const colors = [[0xb77b45, 0xcc8990], [0x9e653e, 0x8bb8a3], [0x825032, 0xd8ba76]];
+  // Bend the existing solid cookie arm instead of adding a disconnected hand.
+  // Store only the affected vertices; repeated greetings reuse this geometry.
+  const arm = [];
+  if (!candy && canWave) {
+    const position = body.attributes.position, normal = body.attributes.normal;
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i), y = position.getY(i);
+      const weight = THREE.MathUtils.smoothstep(x, .17, .29) * THREE.MathUtils.smoothstep(y, .03, .1)
+        * (1 - THREE.MathUtils.smoothstep(y, .29, .35));
+      if (weight > 0) arm.push({ i, x, y, nx: normal.getX(i), ny: normal.getY(i), weight });
+    }
+    body.computeBoundingSphere(); body.boundingSphere.radius += .15;
+  }
+  let waving = 0;
   return {
     root, body,
+    wave(amount = 0) {
+      if (!arm.length || amount === waving) return;
+      waving = amount;
+      const position = body.attributes.position, normal = body.attributes.normal;
+      for (const p of arm) {
+        const angle = amount * p.weight, cosine = Math.cos(angle), sine = Math.sin(angle);
+        const x = p.x - .14, y = p.y - .12;
+        position.setXY(p.i, .14 + x * cosine - y * sine, .12 + x * sine + y * cosine);
+        normal.setXY(p.i, p.nx * cosine - p.ny * sine, p.nx * sine + p.ny * cosine);
+      }
+      position.needsUpdate = normal.needsUpdate = true;
+    },
     dress(index) { if (!candy) cookie.color.setHex(colors[index % colors.length][0]); ribbon.color.setHex(colors[index % colors.length][1]); },
     dispose() {
       const geometries = new Set(), materials = new Set([cookie, icing, pink, ribbon]);
