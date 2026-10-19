@@ -14,6 +14,35 @@ function setup(aspect = 1.5, angle = 0, rotation = 0) {
   return { tree, camera };
 }
 
+test('entry has distinct grounded compressions, short ballistic hops and a final landing', () => {
+  for (const aspect of [1.5, .5]) {
+    const { tree, camera } = setup(aspect);
+    const actor = createGingerbread(tree, { canGreet: true, autoCycle: false });
+    actor.update(.01, camera, true, false); actor.greet(camera, -1);
+    const hops = aspect > 1.1 ? 4 : 3, size = actor.root.scale.z;
+    const feet = () => actor.root.position.y - .43 * actor.root.scale.y;
+    for (let hop = 0; hop < hops; hop++) {
+      const start = actor.root.position.clone();
+      actor.update(.07, camera, true, false);
+      assert.ok(Math.abs(feet()) < .00001, 'feet must stay grounded while the cookie compresses');
+      assert.ok(actor.root.scale.y < size * .85 && actor.root.scale.x > size * 1.09);
+      assert.ok(Math.hypot(actor.root.position.x - start.x, actor.root.position.z - start.z) < .00001,
+        'the cookie must not glide sideways during ground contact');
+      actor.update(.07, camera, true, false);
+      actor.update(.16, camera, true, false);
+      assert.ok(feet() > size * .15, 'each short jump needs a visible apex');
+      assert.equal(actor.greeting, null, 'the greeting starts after the last landing');
+      actor.update(.16, camera, true, false);
+      assert.ok(Math.abs(feet()) < .00001, 'every hop must return to the same ground plane');
+    }
+    actor.update(.09, camera, true, false); assert.ok(actor.root.scale.y < size * .9);
+    actor.update(.091, camera, true, false);
+    assert.equal(actor.greeting, actor.root); assert.equal(actor.root.scale.y, size);
+    assert.ok(Math.abs(feet()) < .00001);
+    actor.dispose();
+  }
+});
+
 test('side greeting jumps into view, faces the viewer, waves its own arm and climbs slowly behind the tree', () => {
   for (const [aspect, angle, side, rotation] of [[1.5, 0, -1, 0], [.5, 0, 1, 0], [1.5, 1.8, 1, .7], [.5, -2, -1, 1.1]]) {
     const { tree, camera } = setup(aspect, angle, rotation);
@@ -26,7 +55,7 @@ test('side greeting jumps into view, faces the viewer, waves its own arm and cli
     const point = actor.root.getWorldPosition(new THREE.Vector3()).project(camera);
     assert.ok(point.x * side > 1.2, 'arrival must begin beyond the chosen screen edge');
     actor.update(.65, camera, true, false); assert.ok(actor.root.position.y > .43 * actor.root.scale.z);
-    actor.update(.65, camera, true, false); assert.equal(actor.greeting, actor.root);
+    actor.update((aspect > 1.1 ? 2.02 : 1.56) - .65 + .001, camera, true, false); assert.equal(actor.greeting, actor.root);
     actor.update(.6, camera, true, false);
     assert.ok(actor.root.userData.greetingOpacity > .9);
     assert.notDeepEqual(body.attributes.position.array, rest, 'the cookie arm must actually move');

@@ -69,7 +69,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
   const ease = t => t * t * (3 - 2 * t);
   let phase = 'hidden', seen = 0, elapsed = 0, cooldown = 0, character = 0, hops = 3, travelDuration = 2.7;
   let departureSide = -entrySide;
-  let readyToPlay = false, reduced = false, climbDuration = 2.6;
+  let readyToPlay = false, reduced = false, climbDuration = 2.6, greetingHops = 4;
   const fallStart = new THREE.Vector3();
   function dress() { model.dress(character); }
   function screenPoint(camera, target, x) {
@@ -140,6 +140,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       back.copy(previousBack); anchors(camera); return false;
     }
     character++; dress(); model.wave(0); climbDuration = 5.6;
+    greetingHops = camera.aspect > 1.1 ? 4 : 3;
     phase = 'greeting-enter'; elapsed = seen = 0; entrySide = side; departureSide = -side;
     root.position.copy(greetingStart); root.rotation.set(0, Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z), 0);
     root.scale.setScalar(size); root.visible = true; root.userData.greetingOpacity = 0;
@@ -184,10 +185,36 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       anchors(camera);
       const behind = (localCamera.x * back.x + localCamera.z * back.y) / Math.max(.01, Math.hypot(localCamera.x, localCamera.z)) > .65;
       if (phase === 'greeting-enter') {
-        const progress = Math.min(1, elapsed / 1.3), bounce = Math.sin(progress * Math.PI);
-        root.position.lerpVectors(greetingStart, greetingMark, ease(progress)); root.position.y += bounce * .3 * size;
-        root.rotation.z = bounce * .1; root.scale.set(size * (1 - bounce * .03), size * (1 + bounce * .04), size);
-        if (progress === 1) { phase = 'greeting'; elapsed = 0; }
+        const cycle = .46, contact = .14, duration = greetingHops * cycle;
+        let advance = 1, lift = 0, squash = 0, stretch = 0, lean = 0;
+        if (elapsed < duration) {
+          const hop = Math.floor(elapsed / cycle), local = elapsed - hop * cycle;
+          if (local < contact) {
+            // Stay planted while loading the spring, rather than sliding
+            // sideways through a slow, continuous aerial arc.
+            advance = hop / greetingHops;
+            squash = Math.sin(local / contact * Math.PI);
+          } else {
+            const flight = (local - contact) / (cycle - contact);
+            advance = (hop + flight) / greetingHops;
+            // A short ballistic arc gives each hop a clear rise and landing.
+            lift = 4 * flight * (1 - flight) * (.23 - hop * .025) * size;
+            stretch = Math.sin(flight * Math.PI * 2);
+            lean = Math.sin(flight * Math.PI) * .045;
+          }
+        } else {
+          squash = Math.sin(Math.min(1, (elapsed - duration) / .18) * Math.PI) * .8;
+        }
+        root.position.lerpVectors(greetingStart, greetingMark, advance);
+        const scaleY = 1 - squash * .16 + stretch * .09;
+        root.scale.set(size * (1 + squash * .10 - stretch * .055), size * scaleY, size);
+        // Compensate for squash so the feet stay on the same ground plane.
+        root.position.y += lift + .43 * size * (scaleY - 1);
+        root.rotation.z = lean;
+        if (elapsed >= duration + .18) {
+          root.position.copy(greetingMark); root.scale.setScalar(size); root.rotation.z = 0;
+          phase = 'greeting'; elapsed = 0;
+        }
       } else if (phase === 'greeting') {
         root.position.copy(greetingMark); root.scale.setScalar(size); root.rotation.z = Math.sin(elapsed * 2) * .025;
         const envelope = THREE.MathUtils.smoothstep(elapsed, 0, .4) * (1 - THREE.MathUtils.smoothstep(elapsed, 3.1, 3.7));
