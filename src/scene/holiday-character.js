@@ -97,9 +97,9 @@ export function createHolidayCharacter(kind = 'gingerbread', { canWave = false, 
     const position = body.attributes.position, normal = body.attributes.normal;
     for (let i = 0; i < position.count; i++) {
       const x = position.getX(i), y = position.getY(i);
-      const weight = THREE.MathUtils.smoothstep(x, .17, .29) * THREE.MathUtils.smoothstep(y, .03, .1)
+      const weight = THREE.MathUtils.smoothstep(Math.abs(x), .17, .29) * THREE.MathUtils.smoothstep(y, .03, .1)
         * (1 - THREE.MathUtils.smoothstep(y, .29, .35));
-      if (weight > 0) arm.push({ i, x, y, nx: normal.getX(i), ny: normal.getY(i), weight });
+      if (weight > 0) arm.push({ i, x, y, nx: normal.getX(i), ny: normal.getY(i), weight, side: Math.sign(x) });
     }
     body.computeBoundingSphere(); body.boundingSphere.radius += .15;
   }
@@ -115,17 +115,17 @@ export function createHolidayCharacter(kind = 'gingerbread', { canWave = false, 
     }
     faceParts.forEach(mesh => faceRest.push({ mesh, y: mesh.position.y, z: mesh.position.z }));
   }
-  let waving = 0, looking = 0;
+  let waving = 0, wavingSide = 1, looking = 0;
   return {
     root, body,
-    wave(amount = 0) {
-      if (!arm.length || amount === waving) return;
-      waving = amount;
+    wave(amount = 0, side = 1) {
+      if (!arm.length || (amount === waving && side === wavingSide)) return;
+      waving = amount; wavingSide = side;
       const position = body.attributes.position, normal = body.attributes.normal;
       for (const p of arm) {
-        const angle = amount * p.weight, cosine = Math.cos(angle), sine = Math.sin(angle);
-        const x = p.x - .14, y = p.y - .12;
-        position.setXY(p.i, .14 + x * cosine - y * sine, .12 + x * sine + y * cosine);
+        const angle = p.side === side ? amount * p.weight * side : 0, cosine = Math.cos(angle), sine = Math.sin(angle);
+        const pivot = .14 * p.side, x = p.x - pivot, y = p.y - .12;
+        position.setXY(p.i, pivot + x * cosine - y * sine, .12 + x * sine + y * cosine);
         normal.setXY(p.i, p.nx * cosine - p.ny * sine, p.nx * sine + p.ny * cosine);
       }
       position.needsUpdate = normal.needsUpdate = true;

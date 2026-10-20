@@ -246,6 +246,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
     root.position.copy(greetingStart); root.rotation.set(0, Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z), 0);
     root.scale.setScalar(size); root.visible = true; root.userData.greetingOpacity = 0;
     root.userData.greetingStyle = closeGreeting ? 'close' : 'side';
+    root.userData.greetingSide = side;
     return true;
   }
   function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; trackingPerch = closeGreeting = false; lookedAtTree = false; back.copy(initialBack); model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; root.userData.greetingStyle = 'side'; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
@@ -320,9 +321,10 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
           else { root.position.copy(exit); phase = 'away'; cooldown = 5; root.visible = false; }
         }
       } else if (phase === 'greeting') {
-        root.position.copy(closeGreeting ? closeVisit.mark : greetingMark); root.scale.setScalar(size); root.rotation.z = Math.sin(elapsed * 2) * .025;
         const envelope = THREE.MathUtils.smoothstep(elapsed, 0, .4) * (1 - THREE.MathUtils.smoothstep(elapsed, 3.1, 3.7));
-        model.wave(envelope * (.65 + Math.sin(elapsed * Math.PI * 3) * .22));
+        root.position.copy(closeGreeting ? closeVisit.mark : greetingMark); root.scale.setScalar(size);
+        root.rotation.z = closeGreeting ? (entrySide * .1 + Math.sin(elapsed * 2) * .015) * envelope : Math.sin(elapsed * 2) * .025;
+        model.wave(envelope * (.65 + Math.sin(elapsed * Math.PI * 3) * .22), closeGreeting ? -entrySide : 1);
         root.userData.greetingOpacity = envelope;
         if (elapsed >= 3.7) {
           model.wave(0); root.userData.greetingOpacity = 0;

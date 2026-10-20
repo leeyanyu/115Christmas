@@ -21,7 +21,7 @@ function height(root, camera, low = -.43, high = .49) {
   return Math.abs(b.y - a.y);
 }
 
-test('a close greeting hops around the foliage toward the lens and waves at about half the tree height', () => {
+test('a close greeting frames a giant face at the side of the lens with the body cropped outside the screen', () => {
   for (const [aspect, angle, side, rotation] of [[1.5, 0, -1, 0], [.5, 0, 1, 0], [2.4, 1.8, 1, .7], [.4, -2, -1, 1.1]]) {
     const { tree, camera } = fixture(aspect, angle, rotation);
     const actor = createGingerbread(tree, { canGreet: true, autoCycle: false });
@@ -42,20 +42,25 @@ test('a close greeting hops around the foliage toward the lens and waves at abou
       assert.equal(actor.root.scale.z, size, 'apparent growth must come from real depth');
     }
     assert.equal(actor.greeting, actor.root); tick(.7);
-    const foreground = height(actor.root, camera), treeHeight = height(tree.root, camera, -.04, 4.33);
-    assert.ok(foreground / treeHeight > .47 && foreground / treeHeight < .65, `close-up/tree height ratio: ${foreground / treeHeight}`);
-    assert.ok(foreground > distant * 3, 'the face should be dramatically closer than a regular side greeting');
+    const foreground = height(actor.root, camera), faceHeight = height(actor.root, camera, .18, .49);
+    const treeHeight = height(tree.root, camera, -.04, 4.33), ratio = faceHeight / treeHeight;
+    assert.ok(ratio > (aspect < 1 ? .4 : .65) && ratio < 1.05, `giant face/tree height ratio: ${ratio}`);
+    assert.ok(foreground > distant * 6, 'the face must be a much closer crop than an enlarged whole-body greeting');
     assert.ok(actor.root.userData.greetingOpacity > .99);
     actor.root.updateWorldMatrix(true, true);
     const face = new THREE.Vector3(0, 0, 1).transformDirection(actor.root.matrixWorld);
-    const toward = camera.position.clone().sub(actor.root.getWorldPosition(new THREE.Vector3())).normalize();
+    const facePosition = new THREE.Vector3(0, .32, .075).applyMatrix4(actor.root.matrixWorld);
+    const toward = camera.position.clone().sub(facePosition).normalize();
     assert.ok(face.dot(toward) > .95, 'the large smiling face should look at the viewer');
-    const body = actor.root.children[0], position = body.geometry.attributes.position, point = new THREE.Vector3();
-    for (let i = 0; i < position.count; i += 11) {
-      point.fromBufferAttribute(position, i).applyMatrix4(body.matrixWorld).project(camera);
-      assert.ok(Math.abs(point.x) < .95 && point.y > -.85 && point.y < .7 && Math.abs(point.z) < 1,
-        'the whole foreground cookie must fit inside the viewport');
+    const center = facePosition.clone().project(camera);
+    assert.ok(center.x * side > .1 && center.x * side < .7, 'the face must peek in from its entrance side');
+    for (const feature of actor.root.children.slice(1, 5)) {
+      const point = feature.getWorldPosition(new THREE.Vector3()).project(camera);
+      assert.ok(Math.abs(point.x) < .95 && Math.abs(point.y) < .85 && Math.abs(point.z) < 1,
+        'eyes and cheeks must stay visible even when the body is cropped');
     }
+    const feet = new THREE.Vector3(0, -.43, 0).applyMatrix4(actor.root.matrixWorld).project(camera);
+    assert.ok(feet.y < -1, 'feet must be outside the viewport, matching the giant-head reference');
     tick(3.01); assert.equal(actor.greeting, null);
     let previous = foreground;
     for (let hop = 0; hop < 6; hop++) {
@@ -94,6 +99,46 @@ test('close greetings preserve the solid cookie, reuse resources and reset on re
   assert.deepEqual(positions, rest);
   camera.position.set(0, 2.31, 2.6); camera.lookAt(0, 2.05, 0); camera.updateMatrixWorld();
   assert.equal(actor.greet(camera, -1, 'close'), false, 'zoomed-in searches must not be interrupted');
+  actor.dispose();
+});
+
+test('the close-up waves the visible inner hand and restores both solid arms on retreat', () => {
+  for (const side of [-1, 1]) {
+    const { tree, camera } = fixture();
+    const actor = createGingerbread(tree, { canGreet: true, autoCycle: false });
+    const positions = actor.root.children[0].geometry.attributes.position.array, rest = positions.slice();
+    actor.update(.1, camera, true, false); actor.greet(camera, side, 'close');
+    for (let i = 0; i < 100 && !actor.greeting; i++) actor.update(.05, camera, true, false);
+    actor.update(.8, camera, true, false);
+    let moving = 0;
+    for (let i = 0; i < rest.length; i += 3) {
+      assert.equal(positions[i + 2], rest[i + 2], 'waving preserves the closed cookie thickness');
+      if (Math.sign(rest[i]) === -side && Math.abs(rest[i]) > .23 && rest[i + 1] > .1 && rest[i + 1] < .29) {
+        if (Math.abs(positions[i + 1] - rest[i + 1]) > .01) moving++;
+      }
+      if (Math.sign(rest[i]) === side) {
+        assert.equal(positions[i], rest[i]); assert.equal(positions[i + 1], rest[i + 1], 'the outer arm stays in its rest pose');
+      }
+    }
+    assert.ok(moving > 100, 'the hand toward the middle of the screen must actually wave');
+    actor.update(3, camera, true, false); assert.deepEqual(positions, rest);
+    actor.reset(); assert.deepEqual(positions, rest);
+    actor.dispose();
+  }
+});
+
+test('the giant head leans into the greeting and straightens before retreat without a sudden turn', () => {
+  const { tree, camera } = fixture();
+  const actor = createGingerbread(tree, { canGreet: true, autoCycle: false });
+  const tick = delta => actor.update(delta, camera, true, false);
+  tick(.1); actor.greet(camera, 1, 'close');
+  for (let i = 0; i < 120 && !actor.greeting; i++) tick(.05);
+  assert.ok(actor.greeting);
+  const landed = actor.root.quaternion.clone();
+  tick(.01); assert.ok(actor.root.quaternion.angleTo(landed) < .02, 'the close-up must not snap into its leaning pose');
+  tick(.79); assert.ok(actor.root.rotation.z > .07, 'the head should gradually lean toward the tree');
+  tick(2.89); assert.ok(actor.greeting && Math.abs(actor.root.rotation.z) < .01, 'the head must straighten gently before jumping backward');
+  tick(.02); assert.equal(actor.greeting, null);
   actor.dispose();
 });
 

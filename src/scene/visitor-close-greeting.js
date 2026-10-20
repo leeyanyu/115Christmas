@@ -53,12 +53,17 @@ export function createVisitorCloseGreeting(tree) {
       camera.updateMatrixWorld(); tree.root.updateWorldMatrix(true, false);
       top.set(0, 4.33, 0); tree.root.localToWorld(top); top.project(camera);
       bottom.set(0, -.04, 0); tree.root.localToWorld(bottom); bottom.project(camera);
-      const height = THREE.MathUtils.clamp(Math.abs(top.y - bottom.y) * .54, .42, .82);
+      // Frame the head, allowing the torso, feet and outer arm to extend beyond
+      // the screen. Narrow views keep the eyes and smile inside the viewport.
+      const height = Math.min(THREE.MathUtils.clamp(Math.abs(top.y - bottom.y) * .8, .65, 1.12), camera.aspect * 1.1);
       const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      const depth = .9 * size / (tangent * height);
-      // Keep the face below the star and leave space above for Merry Xmas.
-      mark.set(side * .12 * depth * tangent * camera.aspect, -.14 * depth * tangent, -depth);
-      mark.applyMatrix4(camera.matrixWorld); tree.root.worldToLocal(mark);
+      const depth = .32 * size / (tangent * height);
+      const screenX = camera.aspect < .85 ? .38 : .42;
+      const screenY = camera.aspect < .85 ? -.1 : -.03;
+      mark.set(side * screenX * depth * tangent * camera.aspect, screenY * depth * tangent, -depth);
+      mark.applyMatrix4(camera.matrixWorld);
+      mark.y -= .32 * size;
+      tree.root.worldToLocal(mark);
       if (Math.hypot(mark.x, mark.z) < radius + .3) return false;
       approach.plan(start, mark, -side);
       retreat.plan(mark, exit, -side);

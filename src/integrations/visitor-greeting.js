@@ -14,7 +14,11 @@ export function createVisitorGreeting({ canvas, visitors, element }) {
       const actor = visitors.greeting;
       if (!ready || !actor) { hide(); return; }
       camera.updateMatrixWorld(); actor.updateWorldMatrix(true, false);
-      point.set(0, .63, .08).applyMatrix4(actor.matrixWorld).project(camera);
+      // The close-up frames a giant head with its body outside the screen;
+      // put the greeting beside the inner hand instead of above that head.
+      if (actor.userData.greetingStyle === 'close') point.set(-actor.userData.greetingSide * .3, .43, .08);
+      else point.set(0, .63, .08);
+      point.applyMatrix4(actor.matrixWorld).project(camera);
       if (Math.abs(point.z) >= 1 || Math.abs(point.x) > 1 || Math.abs(point.y) > 1) { hide(); return; }
       element.hidden = false;
       if (dirty || !width) { width = element.offsetWidth; height = element.offsetHeight; dirty = false; }
