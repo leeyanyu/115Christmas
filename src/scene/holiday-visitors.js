@@ -15,7 +15,14 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
   const actors = [ginger, candy], combinations = [[ginger], [candy], [ginger, candy]];
   const localCamera = new THREE.Vector3();
   let active = [ginger], bag = [], previous = 0, wait = -1, secondDelay = -1, pairSide = -1, playable = false, reduced = false, paused = false;
-  let greetingWait = 0;
+  let greetingWait = 0, greetingStyles = [];
+  function startGreeting(camera, side) {
+    if (!greetingStyles.length) greetingStyles = ['side', 'close'];
+    const index = Math.min(greetingStyles.length - 1, Math.floor(Math.max(0, random()) * greetingStyles.length));
+    if (!ginger.greet(camera, side, greetingStyles[index])) return false;
+    greetingStyles.splice(index, 1);
+    return true;
+  }
   function nextCast(camera) {
     if (!bag.length) bag = [0, 1, 2];
     let index = Math.min(bag.length - 1, Math.floor(Math.max(0, random()) * bag.length));
@@ -23,7 +30,7 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
     previous = bag.splice(index, 1)[0]; active = combinations[previous];
     const pair = active.length === 2;
     if (pair) pairSide = ginger.landingScreenX(camera) < candy.landingScreenX(camera) ? -1 : 1;
-    const greets = !pair && active[0] === ginger && random() < .6 && ginger.greet(camera, random() < .5 ? -1 : 1);
+    const greets = !pair && active[0] === ginger && random() < .6 && startGreeting(camera, random() < .5 ? -1 : 1);
     if (greets) greetingWait = 45 + random() * 35;
     else active[0].arrive(pair ? { sameSide: true, side: pairSide } : {});
     secondDelay = pair ? .55 : -1;
@@ -32,7 +39,7 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
     autoDropCooldown = 0;
     actors.forEach(actor => actor.reset()); candy.hide();
     active = [ginger]; bag = []; previous = 0; wait = secondDelay = -1; playable = paused = false;
-    greetingWait = 12 + random() * 5;
+    greetingWait = 12 + random() * 5; greetingStyles = [];
   }
   reset();
   return {
@@ -80,7 +87,7 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
         // Surprise a waiting visitor even when they never turn to the back.
         // Existing paired arrivals retain their separate, collision-safe lanes.
         if (!greetingWait && wait < 0 && secondDelay < 0 && active.length === 1 && active[0] === ginger && !ginger.isPerforming) {
-          const started = ginger.greet(camera, random() < .5 ? -1 : 1);
+          const started = startGreeting(camera, random() < .5 ? -1 : 1);
           greetingWait = started ? 45 + random() * 35 : 3;
         }
       }
