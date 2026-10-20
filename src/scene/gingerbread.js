@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createHolidayCharacter, characterScale } from './holiday-character.js';
 
-export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true, homeAngle, homeHeight = 1.95, linger = 1.1, entrySide = -1, canGreet = false } = {}) {
+export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true, homeAngle, homeHeight = 1.95, linger = 1.1, entrySide = -1, canGreet = false, dropAfterTurn = false, dropDelay = .6, requestAutoDrop = null } = {}) {
   const initialEntrySide = entrySide;
   const model = createHolidayCharacter(kind, { canWave: canGreet, canLookUp: canGreet }), { root, body } = model;
   tree.root.add(root);
@@ -73,6 +73,28 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
   let departureSide = -entrySide;
   let readyToPlay = false, reduced = false, greetingHops = 4, exitHops = 8;
   let lookHop = 1, lookedAtTree = false;
+  let trackingPerch = false, perchTurn = 0, perchMin = 0, perchMax = 0, lastTreeAngle = 0, lastViewAngle = 0, dropCountdown = -1;
+  const wrapped = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
+  function watchPerch() {
+    trackingPerch = true; perchTurn = perchMin = perchMax = 0; dropCountdown = -1;
+    lastTreeAngle = tree.root.rotation.y;
+    lastViewAngle = Math.atan2(localCamera.x, localCamera.z) + lastTreeAngle;
+  }
+  function updatePerch(delta, reducedMotion) {
+    if (!trackingPerch || reducedMotion) { watchPerch(); return; }
+    const treeAngle = tree.root.rotation.y;
+    const viewAngle = Math.atan2(localCamera.x, localCamera.z) + treeAngle;
+    // Raw tree turns include idle animation; wrapped camera turns include
+    // manual OrbitControls across +/-pi. Track the angle range so small
+    // back-and-forth drags never add up to a lap, while a later full turn does.
+    perchTurn += treeAngle - lastTreeAngle - wrapped(viewAngle - lastViewAngle);
+    perchMin = Math.min(perchMin, perchTurn); perchMax = Math.max(perchMax, perchTurn);
+    lastTreeAngle = treeAngle; lastViewAngle = viewAngle;
+    if (dropCountdown >= 0) {
+      dropCountdown = Math.max(0, dropCountdown - delta);
+      if (!dropCountdown && (!requestAutoDrop || requestAutoDrop())) drop();
+    } else if (perchMax - perchMin >= Math.PI * 2 - .000001) dropCountdown = dropDelay;
+  }
   // One reusable motion sample keeps every leg of this visit on the same
   // contact / launch / landing rhythm, without allocating per-frame objects.
   const spring = { advance: 0, lift: 0, squash: 0, stretch: 0, lean: 0, done: false };
@@ -192,7 +214,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
   function drop() {
     if (!readyToPlay || !root.visible || (phase !== 'hidden' && phase !== 'climbing')) return false;
     if (reduced) return true;
-    fallStart.copy(root.position); phase = 'falling'; elapsed = seen = 0; return true;
+    fallStart.copy(root.position); phase = 'falling'; elapsed = seen = 0; trackingPerch = false; return true;
   }
   function greet(camera, side) {
     if (!canGreet || reduced || !readyToPlay || (phase !== 'hidden' && phase !== 'away')) return false;
@@ -210,12 +232,12 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
     }
     character++; dress(); model.wave(0); model.lookUp(0);
     greetingHops = camera.aspect > 1.1 ? 4 : 3;
-    phase = 'greeting-enter'; elapsed = seen = 0; entrySide = side; departureSide = -side;
+    phase = 'greeting-enter'; elapsed = seen = 0; trackingPerch = false; entrySide = side; departureSide = -side;
     root.position.copy(greetingStart); root.rotation.set(0, Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z), 0);
     root.scale.setScalar(size); root.visible = true; root.userData.greetingOpacity = 0;
     return true;
   }
-  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; lookedAtTree = false; back.copy(initialBack); model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
+  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; trackingPerch = false; lookedAtTree = false; back.copy(initialBack); model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
   reset();
   return {
     get isPerforming() { return phase !== 'hidden'; },
@@ -236,13 +258,13 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       // visits return to their original separate climbing lanes.
       back.copy(initialBack);
       entrySide = side; departureSide = sameSide ? side : -side;
-      character++; dress(); model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; phase = 'entering'; elapsed = seen = cooldown = 0; root.visible = false;
+      character++; dress(); model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; phase = 'entering'; elapsed = seen = cooldown = 0; trackingPerch = false; root.visible = false;
     },
-    hide() { phase = 'away'; model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; root.visible = false; readyToPlay = false; },
+    hide() { phase = 'away'; model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; trackingPerch = false; root.visible = false; readyToPlay = false; },
     update(delta, camera, ready, reducedMotion) {
       readyToPlay = ready; reduced = reducedMotion;
       root.visible = ready && phase !== 'away' && phase !== 'entering';
-      if (!ready) return;
+      if (!ready) { trackingPerch = false; return; }
       if (phase === 'away' && !autoCycle) return;
       if (reducedMotion && phase !== 'hidden' && phase !== 'away') { reset(); readyToPlay = true; root.visible = true; }
       elapsed += delta; cooldown = Math.max(0, cooldown - delta);
@@ -310,8 +332,11 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
         }
       } else if (phase === 'hidden') {
         root.position.copy(home); root.scale.setScalar(size);
-        seen = behind && !cooldown ? seen + delta : 0;
-        if (seen >= linger && !reducedMotion) drop();
+        if (dropAfterTurn) updatePerch(delta, reducedMotion);
+        else {
+          seen = behind && !cooldown ? seen + delta : 0;
+          if (seen >= linger && !reducedMotion) drop();
+        }
       } else if (phase === 'falling') {
         root.scale.setScalar(size);
         const t = Math.min(1, elapsed / 1.1);
@@ -342,7 +367,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
         const advance = progress === 1 ? 1 : (Math.floor(step) + ease(part)) / 5;
         root.rotation.z = Math.sin(part * Math.PI) * (Math.floor(step) % 2 ? -.12 : .12);
         cling(THREE.MathUtils.lerp(landing.y, home.y, advance), 1 - advance);
-        if (progress === 1) { root.rotation.z = -.15; anchors(camera); root.position.copy(home); phase = 'hidden'; seen = elapsed = 0; cooldown = 6; }
+        if (progress === 1) { root.rotation.z = -.15; anchors(camera); root.position.copy(home); phase = 'hidden'; seen = elapsed = 0; cooldown = 6; watchPerch(); }
       }
     },
     reset,

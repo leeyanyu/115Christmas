@@ -2,9 +2,16 @@ import { createGingerbread } from './gingerbread.js';
 import * as THREE from 'three';
 
 export function createHolidayVisitors(tree, { random = Math.random, onDrop = () => {} } = {}) {
+  let autoDropCooldown = 0;
+  // Independent climbs can finish at different times. Reserve a shared gap so
+  // even fast manual turns cannot make both automatic slides start together.
+  const requestAutoDrop = () => {
+    if (autoDropCooldown > .000001) return false;
+    autoDropCooldown = 2; return true;
+  };
   // Exactly two actors are built once; subsequent casts reuse their resources.
-  const ginger = createGingerbread(tree, { autoCycle: false, linger: 6.5, canGreet: true });
-  const candy = createGingerbread(tree, { kind: 'candy-cane', autoCycle: false, homeAngle: -2.65, homeHeight: 2.35, entrySide: 1, linger: 8 });
+  const ginger = createGingerbread(tree, { autoCycle: false, canGreet: true, dropAfterTurn: true, dropDelay: .6, requestAutoDrop });
+  const candy = createGingerbread(tree, { kind: 'candy-cane', autoCycle: false, homeAngle: -2.65, homeHeight: 2.35, entrySide: 1, dropAfterTurn: true, dropDelay: 2.6, requestAutoDrop });
   const actors = [ginger, candy], combinations = [[ginger], [candy], [ginger, candy]];
   const localCamera = new THREE.Vector3();
   let active = [ginger], bag = [], previous = 0, wait = -1, secondDelay = -1, pairSide = -1, playable = false, reduced = false, paused = false;
@@ -22,6 +29,7 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
     secondDelay = pair ? .55 : -1;
   }
   function reset() {
+    autoDropCooldown = 0;
     actors.forEach(actor => actor.reset()); candy.hide();
     active = [ginger]; bag = []; previous = 0; wait = secondDelay = -1; playable = paused = false;
     greetingWait = 12 + random() * 5;
@@ -47,13 +55,14 @@ export function createHolidayVisitors(tree, { random = Math.random, onDrop = () 
       while (object && !object.userData.holidayCharacter) object = object.parent;
       const actor = actors.find(item => item.root === object);
       if (!actor || !actor.root.visible || !playable) return false;
-      if (actor.drop()) onDrop(object.userData.holidayCharacter, reduced);
+      if (actor.drop()) { if (!reduced) autoDropCooldown = 2; onDrop(object.userData.holidayCharacter, reduced); }
       return true;
     },
     update(delta, camera, ready, reducedMotion, allowGreeting = true) {
       if (paused) { playable = false; actors.forEach(actor => { actor.root.visible = false; }); return; }
       playable = ready; reduced = reducedMotion;
       if (!ready) { actors.forEach(actor => actor.update(delta, camera, false, reducedMotion)); return; }
+      autoDropCooldown = reducedMotion ? 0 : Math.max(0, autoDropCooldown - delta);
       if (reducedMotion) {
         // Never hide or exchange characters automatically in reduced motion.
         wait = secondDelay = -1;
