@@ -10,6 +10,8 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
   const back = new THREE.Vector2(home.x, home.z).normalize(), routeRadius = 2.35;
   if (homeAngle !== undefined) back.set(Math.sin(homeAngle), Math.cos(homeAngle));
   const initialBack = back.clone(), previousBack = back.clone(), greetingStart = new THREE.Vector3(), greetingMark = new THREE.Vector3();
+  const greetingArcStart = new THREE.Vector3(), greetingArcEnd = new THREE.Vector3();
+  let greetingArcAngle = 0, greetingArcTurn = 0, greetingFirstLeg = 0, greetingArcLength = 0, greetingExitLength = 0;
   const bandHeight = .04, bandOffset = .4, foliage = new Float32Array(128);
   const vertex = new THREE.Vector3(), edge = new THREE.Vector3(), inverse = new THREE.Matrix4();
   const triangle = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -69,17 +71,16 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
   const ease = t => t * t * (3 - 2 * t);
   let phase = 'hidden', seen = 0, elapsed = 0, cooldown = 0, character = 0, hops = 3, travelDuration = 2.7;
   let departureSide = -entrySide;
-  let readyToPlay = false, reduced = false, climbDuration = 2.6, greetingHops = 4, returnHops = 6, greetingClimb = false;
+  let readyToPlay = false, reduced = false, greetingHops = 4, exitHops = 8;
   // One reusable motion sample keeps every leg of this visit on the same
   // contact / launch / landing rhythm, without allocating per-frame objects.
-  const spring = { advance: 0, lift: 0, squash: 0, stretch: 0, lean: 0, step: 0, done: false };
+  const spring = { advance: 0, lift: 0, squash: 0, stretch: 0, lean: 0, done: false };
   function springAt(time, steps, cycle, height, decay = 0) {
     const duration = steps * cycle, contact = cycle * .14 / .46;
     spring.advance = 1; spring.lift = spring.squash = spring.stretch = spring.lean = 0;
-    spring.step = steps; spring.done = time >= duration + .18;
+    spring.done = time >= duration + .18;
     if (time < duration) {
       const step = Math.floor(time / cycle), local = time - step * cycle;
-      spring.step = step;
       if (local < contact) {
         spring.advance = step / steps;
         spring.squash = Math.sin(local / contact * Math.PI);
@@ -134,6 +135,34 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       }
     }
   }
+  function planGreetingExit(camera) {
+    screenPoint(camera, exit, departureSide * 1.55);
+    // Tangents join a front-facing safety arc, so the cookie crosses to the
+    // opposite edge without cutting through the tree or disappearing behind it.
+    const direction = departureSide;
+    greetingArcAngle = Math.atan2(greetingMark.x, greetingMark.z)
+      + direction * Math.acos(Math.min(1, routeRadius / Math.hypot(greetingMark.x, greetingMark.z)));
+    const endAngle = Math.atan2(exit.x, exit.z)
+      - direction * Math.acos(Math.min(1, routeRadius / Math.hypot(exit.x, exit.z)));
+    greetingArcTurn = direction * THREE.MathUtils.euclideanModulo(direction * (endAngle - greetingArcAngle), Math.PI * 2);
+    greetingArcStart.set(Math.sin(greetingArcAngle) * routeRadius, landing.y, Math.cos(greetingArcAngle) * routeRadius);
+    greetingArcEnd.set(Math.sin(endAngle) * routeRadius, landing.y, Math.cos(endAngle) * routeRadius);
+    greetingFirstLeg = greetingMark.distanceTo(greetingArcStart);
+    greetingArcLength = Math.abs(greetingArcTurn) * routeRadius;
+    greetingExitLength = greetingFirstLeg + greetingArcLength + greetingArcEnd.distanceTo(exit);
+    exitHops = Math.min(30, Math.max(8, Math.ceil(greetingExitLength / (.9 * size))));
+  }
+  function greetingExit(fraction) {
+    const distance = fraction * greetingExitLength;
+    if (distance < greetingFirstLeg) root.position.lerpVectors(greetingMark, greetingArcStart, distance / greetingFirstLeg);
+    else if (distance < greetingFirstLeg + greetingArcLength) {
+      const angle = greetingArcAngle + greetingArcTurn * (distance - greetingFirstLeg) / greetingArcLength;
+      root.position.set(Math.sin(angle) * routeRadius, landing.y, Math.cos(angle) * routeRadius);
+    } else {
+      const finalLeg = greetingExitLength - greetingFirstLeg - greetingArcLength;
+      root.position.lerpVectors(greetingArcEnd, exit, finalLeg > .00001 ? (distance - greetingFirstLeg - greetingArcLength) / finalLeg : 1);
+    }
+  }
   function travel(camera, arriving) {
     const point = arriving ? entry : exit;
     screenPoint(camera, point, (arriving ? entrySide : departureSide) * 1.55);
@@ -155,7 +184,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
   function greet(camera, side) {
     if (!canGreet || reduced || !readyToPlay || (phase !== 'hidden' && phase !== 'away')) return false;
     tree.root.updateWorldMatrix(true, false); localCamera.copy(camera.position); tree.root.worldToLocal(localCamera);
-    // The new perch is behind the tree from this viewer's current direction.
+    // Use the far side as the depth reference for this ground-level greeting.
     previousBack.copy(back); back.set(-localCamera.x, -localCamera.z).normalize(); anchors(camera);
     screenPoint(camera, greetingMark, side * .67); screenPoint(camera, greetingStart, side * 1.35);
     vertex.copy(greetingMark); vertex.y += .5 * size;
@@ -166,16 +195,14 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
     if (vertex.y > .84 || edge.y < -.82 || Math.abs(vertex.y - edge.y) > .3 || Math.abs(vertex.z) > 1) {
       back.copy(previousBack); anchors(camera); return false;
     }
-    character++; dress(); model.wave(0); climbDuration = 5.6;
+    character++; dress(); model.wave(0);
     greetingHops = camera.aspect > 1.1 ? 4 : 3;
-    returnHops = Math.min(12, Math.max(6, Math.ceil(greetingMark.distanceTo(landing) / (.55 * size))));
-    greetingClimb = true;
     phase = 'greeting-enter'; elapsed = seen = 0; entrySide = side; departureSide = -side;
     root.position.copy(greetingStart); root.rotation.set(0, Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z), 0);
     root.scale.setScalar(size); root.visible = true; root.userData.greetingOpacity = 0;
     return true;
   }
-  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; climbDuration = 2.6; greetingClimb = false; back.copy(initialBack); model.wave(0); root.userData.greetingOpacity = 0; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
+  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; back.copy(initialBack); model.wave(0); root.userData.greetingOpacity = 0; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
   reset();
   return {
     get isPerforming() { return phase !== 'hidden'; },
@@ -191,8 +218,11 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       tree.root.localToWorld(vertex); return vertex.project(camera).x;
     },
     arrive({ sameSide = false, side = entrySide } = {}) {
+      // A greeting uses a temporary viewer-relative route. Regular solo/pair
+      // visits return to their original separate climbing lanes.
+      back.copy(initialBack);
       entrySide = side; departureSide = sameSide ? side : -side;
-      character++; dress(); model.wave(0); root.userData.greetingOpacity = 0; climbDuration = 2.6; greetingClimb = false; phase = 'entering'; elapsed = seen = cooldown = 0; root.visible = false;
+      character++; dress(); model.wave(0); root.userData.greetingOpacity = 0; phase = 'entering'; elapsed = seen = cooldown = 0; root.visible = false;
     },
     hide() { phase = 'away'; model.wave(0); root.userData.greetingOpacity = 0; root.visible = false; readyToPlay = false; },
     update(delta, camera, ready, reducedMotion) {
@@ -228,15 +258,18 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
         const envelope = THREE.MathUtils.smoothstep(elapsed, 0, .4) * (1 - THREE.MathUtils.smoothstep(elapsed, 3.1, 3.7));
         model.wave(envelope * (.65 + Math.sin(elapsed * Math.PI * 3) * .22));
         root.userData.greetingOpacity = envelope;
-        if (elapsed >= 3.7) { model.wave(0); root.userData.greetingOpacity = 0; phase = 'greeting-return'; elapsed = 0; }
-      } else if (phase === 'greeting-return') {
-        springAt(elapsed, returnHops, .46, .2);
-        route(greetingMark, 1 - spring.advance);
+        if (elapsed >= 3.7) {
+          model.wave(0); root.userData.greetingOpacity = 0; planGreetingExit(camera);
+          phase = 'greeting-exit'; elapsed = 0;
+        }
+      } else if (phase === 'greeting-exit') {
+        springAt(elapsed, exitHops, .4, .22);
+        greetingExit(spring.advance);
         root.position.y += spring.lift + springScale();
-        root.rotation.z = spring.lean * .045;
+        root.rotation.z = -departureSide * spring.lean * .07;
         if (spring.done) {
-          root.position.copy(landing); root.scale.setScalar(size); root.rotation.z = 0;
-          phase = 'climbing'; elapsed = 0;
+          root.position.copy(exit); root.scale.setScalar(size); root.rotation.z = 0;
+          phase = 'away'; cooldown = 5; root.visible = false;
         }
       } else if (phase === 'hidden') {
         root.position.copy(home); root.scale.setScalar(size);
@@ -266,24 +299,8 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       } else if (phase === 'arriving') {
         if (travel(camera, true)) { phase = 'climbing'; elapsed = 0; root.scale.setScalar(size); }
       } else if (phase === 'climbing') {
-        if (greetingClimb) {
-          // Each branch step starts with a visible crouch, then a short spring
-          // upward. The contact point stays fixed while the body compresses.
-          springAt(elapsed, 8, (climbDuration - .18) / 8, .055);
-          const supportOffset = springScale(.24, .11);
-          root.rotation.z = spring.lean * (spring.step % 2 ? -.08 : .08);
-          const y = THREE.MathUtils.lerp(landing.y, home.y, spring.advance) + spring.lift + supportOffset;
-          // Collision clearance uses the current nonuniform scale, so the wider
-          // crouching cookie cannot push through the foliage.
-          cling(y, 1 - spring.advance);
-          if (spring.done) {
-            root.scale.setScalar(size); root.rotation.z = -.15; anchors(camera); root.position.copy(home);
-            phase = 'hidden'; seen = elapsed = 0; cooldown = 6; greetingClimb = false;
-          }
-          return;
-        }
         root.scale.setScalar(size);
-        const progress = Math.min(1, elapsed / climbDuration), step = progress * 5;
+        const progress = Math.min(1, elapsed / 2.6), step = progress * 5;
         const part = progress === 1 ? 1 : step % 1;
         const advance = progress === 1 ? 1 : (Math.floor(step) + ease(part)) / 5;
         root.rotation.z = Math.sin(part * Math.PI) * (Math.floor(step) % 2 ? -.12 : .12);

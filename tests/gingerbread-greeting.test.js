@@ -43,7 +43,7 @@ test('entry has distinct grounded compressions, short ballistic hops and a final
   }
 });
 
-test('side greeting jumps into view, faces the viewer, waves its own arm and climbs slowly behind the tree', () => {
+test('side greeting faces the viewer, waves its own arm, then exits through the opposite screen edge without climbing', () => {
   for (const [aspect, angle, side, rotation] of [[1.5, 0, -1, 0], [.5, 0, 1, 0], [1.5, 1.8, 1, .7], [.5, -2, -1, 1.1]]) {
     const { tree, camera } = setup(aspect, angle, rotation);
     const actor = createGingerbread(tree, { canGreet: true, autoCycle: false, linger: 20 });
@@ -72,21 +72,27 @@ test('side greeting jumps into view, faces the viewer, waves its own arm and cli
     assert.ok(face.dot(toward) > .8, 'the viewer should see the face while it waves');
     actor.update(3.1, camera, true, false); assert.equal(actor.greeting, null);
     assert.deepEqual(body.attributes.position.array, rest, 'the solid cookie must return to its original shape');
-    for (let i = 0; i < 100 && !actor.isClimbing; i++) actor.update(.1, camera, true, false);
-    assert.ok(actor.isClimbing, 'the short return hops must reach the tree');
-    const base = actor.root.position.y;
-    actor.update(2.7, camera, true, false);
-    assert.ok(actor.root.position.y > base && actor.root.position.y < 1.95, 'the climb must still be progressing after 2.7 seconds');
-    actor.update(3, camera, true, false);
-    assert.equal(actor.isPerforming, false); assert.equal(actor.root.position.y, 1.95);
-    const localCamera = tree.root.worldToLocal(camera.position.clone());
-    assert.ok(actor.root.position.x * localCamera.x + actor.root.position.z * localCamera.z < 0, 'the final perch must be behind the tree for this viewer');
+    for (let i = 0; i < 150 && !actor.isAway; i++) {
+      actor.update(.1, camera, true, false);
+      assert.equal(actor.isClimbing, false, 'this visitor must never switch to climbing');
+    }
+    assert.ok(actor.isAway); assert.equal(actor.root.visible, false);
+    const departure = actor.root.getWorldPosition(new THREE.Vector3()).project(camera);
+    assert.ok(departure.x * -side > 1.4, 'the cookie must leave through the side opposite its entrance');
+    actor.root.updateWorldMatrix(true, true);
+    const vertex = new THREE.Vector3();
+    for (let i = 0; i < body.attributes.position.count; i += 7) {
+      vertex.fromBufferAttribute(body.attributes.position, i).applyMatrix4(actor.root.children[0].matrixWorld).project(camera);
+      assert.ok(vertex.x * -side > 1, 'hide only after the whole cookie has cleared the screen');
+    }
+    const end = actor.root.position.clone(); actor.update(10, camera, true, false);
+    assert.ok(actor.root.position.equals(end)); assert.equal(actor.root.visible, false);
     assert.ok(camera.position.equals(cameraPosition)); assert.equal(tree.root.rotation.y, treeAngle);
     actor.dispose();
   }
 });
 
-test('after waving, every return hop lands and compresses, then each climbing step crouches and rebounds', () => {
+test('after waving, continuous short hops cross in front of the tree with a planted compression at each landing', () => {
   for (const aspect of [1.5, .5]) {
     const { tree, camera } = setup(aspect);
     const actor = createGingerbread(tree, { canGreet: true, autoCycle: false });
@@ -97,17 +103,22 @@ test('after waving, every return hop lands and compresses, then each climbing st
     const size = actor.root.scale.z;
     let compressions = 0, jumps = 0, crouching = false, airborne = false;
     let previous = actor.root.position.clone();
-    for (let frame = 0; frame < 700 && !actor.isClimbing; frame++) {
+    let crossesFront = false;
+    for (let frame = 0; frame < 1500 && !actor.isAway; frame++) {
       tick(.01);
       const feet = actor.root.position.y - .43 * actor.root.scale.y;
       const grounded = Math.abs(feet) < .00001;
-      assert.ok(feet >= -.00001, 'return hops must not sink below the ground');
+      assert.ok(feet >= -.00001 && feet <= size * .221, 'short hops must stay close to the ground');
+      assert.ok(Math.hypot(actor.root.position.x, actor.root.position.z) >= 2.35 - .00001,
+        'the crossing path must stay outside the tree');
+      if (Math.abs(actor.root.position.x) < .2 && actor.root.position.z > 2) crossesFront = true;
+      assert.equal(actor.isClimbing, false);
       if (grounded && actor.root.scale.y < size * .9) {
         if (!crouching) compressions++;
         crouching = true;
         assert.ok(actor.root.scale.x > size * 1.06, 'ground contact must widen the compressed cookie');
         assert.ok(Math.hypot(actor.root.position.x - previous.x, actor.root.position.z - previous.z) < .00001,
-          'the return must pause its horizontal travel during each grounded crouch');
+          'the cookie must pause its horizontal travel during each grounded crouch');
       } else crouching = false;
       if (feet > size * .1) {
         if (!airborne) jumps++;
@@ -115,30 +126,10 @@ test('after waving, every return hop lands and compresses, then each climbing st
       } else if (grounded) airborne = false;
       previous.copy(actor.root.position);
     }
-    assert.ok(actor.isClimbing, 'the bounded return sequence must finish');
-    assert.ok(jumps >= 6 && compressions >= jumps, 'every short return jump needs its own compression');
-    assert.equal(actor.root.scale.y, size);
-
-    const initialFeet = actor.root.position.y - .43 * size;
-    tick(.1);
-    assert.ok(actor.root.scale.y < size * .78 && actor.root.scale.x > size * 1.14,
-      'the climbing crouch must be visibly deeper than the ground hops');
-    assert.ok(Math.abs(actor.root.position.y - .43 * actor.root.scale.y - initialFeet) < .00001,
-      'a climbing crouch must compress around its support point');
-    let climbingCrouches = 1, minScale = actor.root.scale.y / size, maxScale = 1;
-    crouching = true;
-    for (let frame = 0; frame < 600 && actor.isClimbing; frame++) {
-      tick(.01);
-      const scale = actor.root.scale.y / size;
-      minScale = Math.min(minScale, scale); maxScale = Math.max(maxScale, scale);
-      if (scale < .79) {
-        if (!crouching) climbingCrouches++;
-        crouching = true;
-      } else crouching = false;
-    }
-    assert.equal(climbingCrouches, 8, 'all eight climbing steps must visibly crouch');
-    assert.ok(minScale < .77 && maxScale > 1.1, 'climbing must alternate compression with upward stretch');
-    assert.equal(actor.isPerforming, false); assert.equal(actor.root.position.y, 1.95);
+    assert.ok(actor.isAway, 'the bounded exit sequence must finish');
+    assert.ok(jumps >= 8 && compressions >= jumps, 'every short departure jump needs its own compression');
+    assert.ok(crossesFront, 'the character should remain on the viewer-facing side while crossing the tree');
+    assert.equal(actor.root.visible, false); assert.equal(actor.greeting, null);
     assert.equal(actor.root.scale.y, size);
     actor.dispose();
   }
@@ -173,13 +164,13 @@ test('greetings respect close-ups and reuse the same solid cookie through replay
     for (let i = 0; i < 200; i++) actor.update(.1, camera, true, false);
     assert.equal(actor.root.children[0].geometry, geometry); assert.equal(geometry.attributes.position.array, positions);
     assert.equal(actor.root.children[0].material, material); assert.equal(tree.root.children.length, count);
-    assert.equal(actor.isGreetingVisit, false);
+    assert.equal(actor.isGreetingVisit, false); assert.ok(actor.isAway);
   }
   let disposed = 0; geometry.addEventListener('dispose', () => disposed++);
   actor.dispose(); assert.equal(disposed, 1);
 });
 
-test('the entire greeting, return and slower climb stay outside the branch volumes', () => {
+test('the entire greeting and opposite-side exit stay outside the branch volumes', () => {
   for (const aspect of [1.5, .5]) {
     const { tree, camera } = setup(aspect, 1.6);
     const actor = createGingerbread(tree, { canGreet: true, autoCycle: false, linger: 20 });
@@ -192,6 +183,7 @@ test('the entire greeting, return and slower climb stay outside the branch volum
     const point = new THREE.Vector3(), local = new THREE.Vector3();
     for (let frame = 0; frame < 200; frame++) {
       actor.update(.1, camera, true, false); body.updateWorldMatrix(true, false);
+      if (!actor.root.visible) continue;
       for (let i = 0; i < positions.count; i += 37) {
         point.fromBufferAttribute(positions, i).applyMatrix4(body.matrixWorld);
         for (const branch of branches) {
