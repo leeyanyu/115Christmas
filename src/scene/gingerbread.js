@@ -3,7 +3,7 @@ import { createHolidayCharacter, characterScale } from './holiday-character.js';
 
 export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true, homeAngle, homeHeight = 1.95, linger = 1.1, entrySide = -1, canGreet = false } = {}) {
   const initialEntrySide = entrySide;
-  const model = createHolidayCharacter(kind, { canWave: canGreet }), { root, body } = model;
+  const model = createHolidayCharacter(kind, { canWave: canGreet, canLookUp: canGreet }), { root, body } = model;
   tree.root.add(root);
   const home = new THREE.Vector3(.42, 1.95, -1.08), localCamera = new THREE.Vector3();
   const landing = new THREE.Vector3(.85, .51, -1.3), exit = new THREE.Vector3(), entry = new THREE.Vector3(), tangentPoint = new THREE.Vector3();
@@ -72,6 +72,7 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
   let phase = 'hidden', seen = 0, elapsed = 0, cooldown = 0, character = 0, hops = 3, travelDuration = 2.7;
   let departureSide = -entrySide;
   let readyToPlay = false, reduced = false, greetingHops = 4, exitHops = 8;
+  let lookHop = 1, lookedAtTree = false;
   // One reusable motion sample keeps every leg of this visit on the same
   // contact / launch / landing rhythm, without allocating per-frame objects.
   const spring = { advance: 0, lift: 0, squash: 0, stretch: 0, lean: 0, done: false };
@@ -151,16 +152,28 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
     greetingArcLength = Math.abs(greetingArcTurn) * routeRadius;
     greetingExitLength = greetingFirstLeg + greetingArcLength + greetingArcEnd.distanceTo(exit);
     exitHops = Math.min(30, Math.max(8, Math.ceil(greetingExitLength / (.9 * size))));
+    // Stop on a completed landing, on the opposite side but still fully in
+    // view. Pick the landing nearest 60% of the screen's half-width.
+    let best = Infinity;
+    lookHop = Math.max(1, Math.floor(exitHops * .6)); lookedAtTree = false;
+    for (let hop = 1; hop < exitHops - 1; hop++) {
+      greetingExit(hop / exitHops, vertex);
+      tree.root.localToWorld(vertex); vertex.project(camera);
+      const side = vertex.x * departureSide;
+      if (side < .35 || side > .78 || Math.abs(vertex.y) > .82) continue;
+      const distance = Math.abs(side - .6);
+      if (distance < best) { best = distance; lookHop = hop; }
+    }
   }
-  function greetingExit(fraction) {
+  function greetingExit(fraction, point = root.position) {
     const distance = fraction * greetingExitLength;
-    if (distance < greetingFirstLeg) root.position.lerpVectors(greetingMark, greetingArcStart, distance / greetingFirstLeg);
+    if (distance < greetingFirstLeg) point.lerpVectors(greetingMark, greetingArcStart, distance / greetingFirstLeg);
     else if (distance < greetingFirstLeg + greetingArcLength) {
       const angle = greetingArcAngle + greetingArcTurn * (distance - greetingFirstLeg) / greetingArcLength;
-      root.position.set(Math.sin(angle) * routeRadius, landing.y, Math.cos(angle) * routeRadius);
+      point.set(Math.sin(angle) * routeRadius, landing.y, Math.cos(angle) * routeRadius);
     } else {
       const finalLeg = greetingExitLength - greetingFirstLeg - greetingArcLength;
-      root.position.lerpVectors(greetingArcEnd, exit, finalLeg > .00001 ? (distance - greetingFirstLeg - greetingArcLength) / finalLeg : 1);
+      point.lerpVectors(greetingArcEnd, exit, finalLeg > .00001 ? (distance - greetingFirstLeg - greetingArcLength) / finalLeg : 1);
     }
   }
   function travel(camera, arriving) {
@@ -195,20 +208,21 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
     if (vertex.y > .84 || edge.y < -.82 || Math.abs(vertex.y - edge.y) > .3 || Math.abs(vertex.z) > 1) {
       back.copy(previousBack); anchors(camera); return false;
     }
-    character++; dress(); model.wave(0);
+    character++; dress(); model.wave(0); model.lookUp(0);
     greetingHops = camera.aspect > 1.1 ? 4 : 3;
     phase = 'greeting-enter'; elapsed = seen = 0; entrySide = side; departureSide = -side;
     root.position.copy(greetingStart); root.rotation.set(0, Math.atan2(localCamera.x - root.position.x, localCamera.z - root.position.z), 0);
     root.scale.setScalar(size); root.visible = true; root.userData.greetingOpacity = 0;
     return true;
   }
-  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; back.copy(initialBack); model.wave(0); root.userData.greetingOpacity = 0; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
+  function reset() { phase = 'hidden'; seen = elapsed = cooldown = character = 0; lookedAtTree = false; back.copy(initialBack); model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; entrySide = initialEntrySide; departureSide = -entrySide; readyToPlay = false; dress(); home.y = homeHeight; root.position.copy(home); root.rotation.set(0, Math.atan2(back.x, back.y), -.15); root.scale.setScalar(size); root.visible = false; }
   reset();
   return {
     get isPerforming() { return phase !== 'hidden'; },
     get isAway() { return phase === 'away'; },
     get isGreetingVisit() { return phase.startsWith('greeting'); },
     get isClimbing() { return phase === 'climbing'; },
+    get isLookingAtTree() { return phase === 'greeting-look'; },
     get greeting() { return phase === 'greeting' && root.visible ? root : null; },
     root,
     drop,
@@ -222,9 +236,9 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       // visits return to their original separate climbing lanes.
       back.copy(initialBack);
       entrySide = side; departureSide = sameSide ? side : -side;
-      character++; dress(); model.wave(0); root.userData.greetingOpacity = 0; phase = 'entering'; elapsed = seen = cooldown = 0; root.visible = false;
+      character++; dress(); model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; phase = 'entering'; elapsed = seen = cooldown = 0; root.visible = false;
     },
-    hide() { phase = 'away'; model.wave(0); root.userData.greetingOpacity = 0; root.visible = false; readyToPlay = false; },
+    hide() { phase = 'away'; model.wave(0); model.lookUp(0); root.userData.greetingOpacity = 0; root.visible = false; readyToPlay = false; },
     update(delta, camera, ready, reducedMotion) {
       readyToPlay = ready; reduced = reducedMotion;
       root.visible = ready && phase !== 'away' && phase !== 'entering';
@@ -239,7 +253,15 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
       const walking = ['bouncing', 'hopping', 'away', 'arriving'].includes(phase) || phase.startsWith('greeting');
       const toward = Math.atan2(localCamera.x - (walking ? root.position.x : back.x), localCamera.z - (walking ? root.position.z : back.y));
       const offset = Math.atan2(Math.sin(toward - outward), Math.cos(toward - outward));
-      const target = outward + (walking ? offset : THREE.MathUtils.clamp(offset, -Math.PI / 3, Math.PI / 3));
+      let target = outward + (walking ? offset : THREE.MathUtils.clamp(offset, -Math.PI / 3, Math.PI / 3));
+      const glance = phase === 'greeting-look'
+        ? THREE.MathUtils.smoothstep(elapsed, .18, .7) * (1 - THREE.MathUtils.smoothstep(elapsed, 1.45, 2.05)) : 0;
+      if (glance) {
+        const inward = Math.atan2(-root.position.x, -root.position.z);
+        const turnToTree = Math.atan2(Math.sin(inward - target), Math.cos(inward - target));
+        // A three-quarter turn leaves the smiling face visible during the look.
+        target += THREE.MathUtils.clamp(turnToTree, -1.15, 1.15) * glance;
+      }
       const turn = Math.atan2(Math.sin(target - root.rotation.y), Math.cos(target - root.rotation.y));
       root.rotation.y += turn * (reducedMotion ? 1 : 1 - Math.exp(-delta * 12));
       anchors(camera);
@@ -263,6 +285,11 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
           phase = 'greeting-exit'; elapsed = 0;
         }
       } else if (phase === 'greeting-exit') {
+        if (!lookedAtTree && elapsed >= lookHop * .4) {
+          greetingExit(lookHop / exitHops); root.scale.setScalar(size); root.rotation.z = 0;
+          phase = 'greeting-look'; elapsed = 0;
+          return;
+        }
         springAt(elapsed, exitHops, .4, .22);
         greetingExit(spring.advance);
         root.position.y += spring.lift + springScale();
@@ -270,6 +297,16 @@ export function createGingerbread(tree, { kind = 'gingerbread', autoCycle = true
         if (spring.done) {
           root.position.copy(exit); root.scale.setScalar(size); root.rotation.z = 0;
           phase = 'away'; cooldown = 5; root.visible = false;
+        }
+      } else if (phase === 'greeting-look') {
+        greetingExit(lookHop / exitHops);
+        const squash = elapsed < .18 ? Math.sin(elapsed / .18 * Math.PI) * .12 : 0;
+        root.scale.set(size * (1 + squash * .625), size * (1 - squash), size);
+        root.position.y -= .43 * size * squash;
+        root.rotation.z = 0;
+        model.lookUp(glance);
+        if (elapsed >= 2.1) {
+          model.lookUp(0); lookedAtTree = true; phase = 'greeting-exit'; elapsed = lookHop * .4;
         }
       } else if (phase === 'hidden') {
         root.position.copy(home); root.scale.setScalar(size);

@@ -135,6 +135,74 @@ test('after waving, continuous short hops cross in front of the tree with a plan
   }
 });
 
+test('the opposite-side landing pauses for an upward glance, then resumes hopping with the original solid cookie restored', () => {
+  for (const [aspect, angle, side, rotation] of [[1.5, 0, -1, 0], [.5, 0, 1, 0], [1.5, 1.8, 1, .7], [.5, -2, -1, 1.1]]) {
+    const { tree, camera } = setup(aspect, angle, rotation);
+    const actor = createGingerbread(tree, { canGreet: true, autoCycle: false });
+    const body = actor.root.children[0].geometry, rest = body.attributes.position.array.slice();
+    const normals = body.attributes.normal.array.slice();
+    const eye = actor.root.children[1], eyePosition = eye.position.clone();
+    const tick = seconds => actor.update(seconds, camera, true, false);
+    tick(.01); assert.ok(actor.greet(camera, side));
+    tick(2.1); tick(3.71);
+    for (let i = 0; i < 150 && !actor.isLookingAtTree; i++) tick(.1);
+    assert.ok(actor.isLookingAtTree, 'the visitor must stop on the opposite side before departing');
+    const landing = actor.root.position.clone();
+    const point = actor.root.getWorldPosition(new THREE.Vector3()).project(camera);
+    assert.ok(point.x * -side > .35 && point.x * -side < .8, 'the pause must be on the opposite side and remain in view');
+    tick(.09);
+    assert.ok(actor.root.scale.y < actor.root.scale.z * .89, 'the pause starts with a soft landing compression');
+    assert.ok(Math.abs(actor.root.position.y - .43 * actor.root.scale.y) < .00001);
+    tick(.81);
+    assert.ok(actor.root.position.equals(landing), 'the glance must keep the body planted');
+    assert.equal(actor.greeting, null, 'the greeting text must remain hidden during the glance');
+    assert.ok(eye.rotation.x < -.45 && eye.position.z < eyePosition.z - .05, 'eyes and head must actually tilt upward together');
+    assert.notDeepEqual(body.attributes.position.array, rest, 'looking up bends the solid head instead of just yawing the body');
+    for (let i = 0; i < rest.length; i += 3) {
+      assert.equal(body.attributes.position.array[i], rest[i], 'the head bend must preserve cookie width');
+      if (rest[i + 1] < .17) {
+        assert.equal(body.attributes.position.array[i + 1], rest[i + 1]);
+        assert.equal(body.attributes.position.array[i + 2], rest[i + 2], 'body and feet stay unchanged');
+      }
+    }
+    const face = new THREE.Vector3(0, 0, 1).applyQuaternion(actor.root.quaternion);
+    const inward = landing.clone().setY(0).negate().normalize();
+    assert.ok(face.dot(inward) > .25, 'the three-quarter turn must point toward the tree');
+    tick(.45); assert.ok(actor.isLookingAtTree && actor.root.position.equals(landing));
+    tick(.8); assert.equal(actor.isLookingAtTree, false);
+    assert.deepEqual(body.attributes.position.array, rest);
+    assert.ok(body.attributes.normal.array.every((value, i) => value === normals[i]), 'the original shading normals must be restored');
+    assert.ok(eye.position.equals(eyePosition)); assert.equal(eye.rotation.x, 0);
+    tick(.28); assert.ok(actor.root.position.distanceTo(landing) > .05, 'short hops must resume after the glance');
+    for (let i = 0; i < 150 && !actor.isAway; i++) { tick(.1); assert.equal(actor.isLookingAtTree, false, 'only one glance per visit'); }
+    assert.ok(actor.isAway); assert.equal(actor.root.visible, false);
+    actor.dispose();
+  }
+});
+
+test('an opposite-side glance pauses for the guide and clears its head pose on reduced motion or replay', () => {
+  const { tree, camera } = setup();
+  const visitors = createHolidayVisitors(tree, { random: () => 0 });
+  for (let i = 0; i < 300; i++) {
+    visitors.update(.1, camera, true, false);
+    const root = tree.root.getObjectByName('hidden-gingerbread');
+    if (root.children[1].rotation.x < -.45) break;
+  }
+  const root = tree.root.getObjectByName('hidden-gingerbread'), eye = root.children[1];
+  assert.ok(eye.rotation.x < -.45);
+  const position = root.position.clone(), heading = root.rotation.y, head = eye.rotation.x;
+  const geometry = root.children[0].geometry.attributes.position.array.slice();
+  visitors.update(1, camera, true, false, false);
+  assert.ok(root.position.equals(position)); assert.equal(root.rotation.y, heading); assert.equal(eye.rotation.x, head);
+  assert.deepEqual(root.children[0].geometry.attributes.position.array, geometry);
+  visitors.update(.1, camera, true, true);
+  assert.equal(eye.rotation.x, 0);
+  const still = root.position.clone(); visitors.update(5, camera, true, true);
+  assert.ok(root.position.equals(still));
+  visitors.reset(); assert.equal(eye.rotation.x, 0);
+  visitors.dispose();
+});
+
 test('random greetings reach a waiting front-view visitor and pause for dialogs, parties and reduced motion', () => {
   const { tree, camera } = setup();
   const visitors = createHolidayVisitors(tree, { random: () => 0 });

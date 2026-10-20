@@ -18,7 +18,7 @@ export function characterMaterial(options) {
   return material;
 }
 
-export function createHolidayCharacter(kind = 'gingerbread', { canWave = false } = {}) {
+export function createHolidayCharacter(kind = 'gingerbread', { canWave = false, canLookUp = false } = {}) {
   const candy = kind === 'candy-cane';
   const cookie = characterMaterial({ color: candy ? 0xffffff : 0xb77b45, roughness: candy ? .4 : .8 });
   const icing = characterMaterial({ color: candy ? 0x654536 : 0xffedd0, roughness: .65 });
@@ -31,6 +31,7 @@ export function createHolidayCharacter(kind = 'gingerbread', { canWave = false }
     const mesh = new THREE.Mesh(sphere, material); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); root.add(mesh); return mesh;
   }
   let body, stripes;
+  const faceParts = [];
   if (candy) {
     const curve = new THREE.CatmullRomCurve3([
       [-.12, -.35], [-.12, .14], [-.12, .29], [-.04, .40], [.10, .40], [.20, .31], [.20, .18],
@@ -77,11 +78,12 @@ export function createHolidayCharacter(kind = 'gingerbread', { canWave = false }
     body = new THREE.ExtrudeGeometry(outline, { depth: .09, bevelEnabled: true, bevelSize: .025, bevelThickness: .025, bevelSegments: 5, curveSegments: 20, steps: 1 });
     body.translate(0, 0, -.045); root.add(new THREE.Mesh(body, cookie));
     for (const side of [-1, 1]) {
-      ball(icing, side * .055, .33, .075, .017, .021, .012);
-      ball(pink, side * .085, .275, .074, .022, .013, .009);
+      faceParts.push(ball(icing, side * .055, .33, .075, .017, .021, .012));
+      faceParts.push(ball(pink, side * .085, .275, .074, .022, .013, .009));
     }
     const smile = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.055, .275, .076), new THREE.Vector3(0, .22, .083), new THREE.Vector3(.055, .275, .076));
-    root.add(new THREE.Mesh(new THREE.TubeGeometry(smile, 20, .009, 8, false), icing));
+    const mouth = new THREE.Mesh(new THREE.TubeGeometry(smile, 20, .009, 8, false), icing);
+    root.add(mouth); faceParts.push(mouth);
     ball(ribbon, -.035, .14, .08, .044, .026, .012); ball(ribbon, .035, .14, .08, .044, .026, .012);
     ball(ribbon, 0, .14, .09, .018);
     ball(icing, 0, .04, .075, .019); ball(icing, 0, -.04, .075, .019);
@@ -101,7 +103,19 @@ export function createHolidayCharacter(kind = 'gingerbread', { canWave = false }
     }
     body.computeBoundingSphere(); body.boundingSphere.radius += .15;
   }
-  let waving = 0;
+  // Bend the existing solid head around its neck. Face details follow the same
+  // pivot, while the body and feet stay planted; no extra head mesh is needed.
+  const head = [], faceRest = [];
+  if (!candy && canLookUp) {
+    const position = body.attributes.position, normal = body.attributes.normal;
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i), y = position.getY(i);
+      const weight = THREE.MathUtils.smoothstep(y, .17, .25) * (1 - THREE.MathUtils.smoothstep(Math.abs(x), .18, .23));
+      if (weight > 0) head.push({ i, y, z: position.getZ(i), ny: normal.getY(i), nz: normal.getZ(i), weight });
+    }
+    faceParts.forEach(mesh => faceRest.push({ mesh, y: mesh.position.y, z: mesh.position.z }));
+  }
+  let waving = 0, looking = 0;
   return {
     root, body,
     wave(amount = 0) {
@@ -113,6 +127,23 @@ export function createHolidayCharacter(kind = 'gingerbread', { canWave = false }
         const x = p.x - .14, y = p.y - .12;
         position.setXY(p.i, .14 + x * cosine - y * sine, .12 + x * sine + y * cosine);
         normal.setXY(p.i, p.nx * cosine - p.ny * sine, p.nx * sine + p.ny * cosine);
+      }
+      position.needsUpdate = normal.needsUpdate = true;
+    },
+    lookUp(amount = 0) {
+      if (!head.length || amount === looking) return;
+      looking = amount;
+      const position = body.attributes.position, normal = body.attributes.normal;
+      for (const p of head) {
+        const angle = -amount * .48 * p.weight, cosine = Math.cos(angle), sine = Math.sin(angle);
+        position.setY(p.i, .19 + (p.y - .19) * cosine - p.z * sine).setZ(p.i, (p.y - .19) * sine + p.z * cosine);
+        normal.setY(p.i, p.ny * cosine - p.nz * sine).setZ(p.i, p.ny * sine + p.nz * cosine);
+      }
+      const angle = amount ? -amount * .48 : 0, cosine = Math.cos(angle), sine = Math.sin(angle);
+      for (const p of faceRest) {
+        p.mesh.position.y = .19 + (p.y - .19) * cosine - p.z * sine;
+        p.mesh.position.z = (p.y - .19) * sine + p.z * cosine;
+        p.mesh.rotation.x = angle;
       }
       position.needsUpdate = normal.needsUpdate = true;
     },
