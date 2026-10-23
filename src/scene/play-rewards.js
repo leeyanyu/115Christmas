@@ -17,13 +17,13 @@ export function createPlayRewards(scene, capacity = 192) {
   geometry.setAttribute('kind', new THREE.BufferAttribute(types, 1));
   geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
   const material = new THREE.ShaderMaterial({
-    uniforms: { pixelRatio: { value: 1 }, focusDistance: { value: 10 } },
+    uniforms: { pixelRatio: { value: 1 }, focusDistance: { value: 10 }, starBrightness: { value: 1 } },
     vertexShader: `
-      uniform float pixelRatio; uniform float focusDistance;
+      uniform float pixelRatio; uniform float focusDistance; uniform float starBrightness;
       attribute float alpha; attribute float kind; attribute float size;
       varying float opacity; varying float shape; varying float softness;
       void main(){
-        opacity=alpha; shape=kind;
+        opacity=alpha*mix(1.0,starBrightness,kind); shape=kind;
         vec4 p=modelViewMatrix*vec4(position,1.0);
         float distance=-p.z;
         // Perspective size plus distance fade makes foreground and background distinct.
@@ -42,7 +42,7 @@ export function createPlayRewards(scene, capacity = 192) {
         float star=1.0-smoothstep(edge-.09,edge+.03,r);
         float snow=exp(-r*r*mix(5.5,2.8,softness))*(1.0-smoothstep(.65,1.0,r));
         vec3 tint=mix(vec3(.90,.94,1.0),vec3(1.0,.77,.38),shape);
-        gl_FragColor=vec4(tint,mix(snow,star,shape)*opacity);
+        gl_FragColor=vec4(tint,min(.95,mix(snow,star,shape)*opacity));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
@@ -55,7 +55,10 @@ export function createPlayRewards(scene, capacity = 192) {
   let starLimit = starCount, snowLimit = capacity - starCount;
   const origin = new THREE.Vector3();
   return {
-    stars(point, reduced, lowQuality = false) { origin.copy(point); stars = 0; reducedStars = reduced; starLimit = reduced ? 8 : lowQuality ? Math.min(24, starCount) : starCount; },
+    stars(point, reduced, lowQuality = false, brightness = 1) {
+      origin.copy(point); stars = 0; reducedStars = reduced; starLimit = reduced ? 8 : lowQuality ? Math.min(24, starCount) : starCount;
+      material.uniforms.starBrightness.value = THREE.MathUtils.clamp(brightness, 1, reduced ? 1.25 : 2.2);
+    },
     snow(reduced, lowQuality = false) { snow = 0; reducedSnow = reduced; snowLimit = reduced ? 24 : lowQuality ? Math.min(64, capacity - starCount) : capacity - starCount; },
     update(delta, pixelRatio, focusDistance = 10) {
       stars += delta; snow += delta;
@@ -85,7 +88,7 @@ export function createPlayRewards(scene, capacity = 192) {
       geometry.attributes.position.needsUpdate = true; geometry.attributes.alpha.needsUpdate = true;
       points.visible = active;
     },
-    reset() { stars = 4; snow = 11; alphas.fill(0); points.visible = false; },
+    reset() { stars = 4; snow = 11; alphas.fill(0); points.visible = false; material.uniforms.starBrightness.value = 1; },
     dispose() { scene.remove(points); geometry.dispose(); material.dispose(); },
   };
 }

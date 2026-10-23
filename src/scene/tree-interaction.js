@@ -95,9 +95,9 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
   const motionChanged = () => { cancel(); particles.reset(); triggers.reset(); rewards.reset(); };
   reducedMotion.addEventListener('change', motionChanged);
   return {
-    starlight() {
+    starlight(brightness = 1) {
       star.updateWorldMatrix(true, false); star.getWorldPosition(starPoint);
-      rewards.stars(starPoint, reducedMotion.matches, lowQuality);
+      rewards.stars(starPoint, reducedMotion.matches, lowQuality, brightness);
     },
     snowfall() { rewards.snow(reducedMotion.matches, lowQuality); },
     celebrate() {

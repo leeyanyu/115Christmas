@@ -109,11 +109,12 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
       if (window.innerWidth <= 700) gratitudePrompt.announce(message);
     } });
   const atmosphere = createRotationAtmosphere(canvas);
-  const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: atmosphere.update });
+  let rotationDim = 0;
+  const rotationGlow = createRotationGlow({ tree, controls, canvas, onGlow: strength => { rotationDim = strength; } });
   const palmLight = createPalmLight(tree, (navigator.hardwareConcurrency || 4) <= 4 ? 36 : 72);
   celebration = createTreeCelebration({ tree, canvas, controls, onStart: () => { campfire?.stop(); interaction.celebrate(); } });
   campfire = createCampfireParty({ tree, canvas, controls,
-    canStart: camera => !palmLight.isPresent && !palmLight.isFlowing && !gifts.isMoving && visitors.canGather(camera),
+    canStart: camera => !palmLight.isPresent && !palmLight.isRotating && !palmLight.isFlowing && !gifts.isMoving && visitors.canGather(camera),
     onStart: () => {
       visitors.beginParty();
       const message = '聖誕營火晚會開始了！薑餅人與拐杖糖來跳舞 ✧';
@@ -168,7 +169,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     time += delta;
     const handReady = stage.isSettled && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open;
     palmLight.rotate(delta, reducedMotion.matches, handReady);
-    rotationGlow.beforeUpdate(delta, stage.isSettled && !palmLight.isPresent && !palmLight.isFlowing && !celebration.isActive && !campfire.isActive && !visitors.isPerforming, reducedMotion.matches);
+    rotationGlow.beforeUpdate(delta, stage.isSettled && !palmLight.isPresent && !palmLight.isRotating && !palmLight.isFlowing && !celebration.isActive && !campfire.isActive && !visitors.isPerforming, reducedMotion.matches);
     celebration.update(delta, stage.isSettled, reducedMotion.matches);
     controls.update(delta);
     zoomOrbit.update(delta, reducedMotion.matches, stage.isSettled);
@@ -188,17 +189,18 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     hiddenGoodness.update(delta, camera, stage.isSettled && !celebration.isActive && !campfire.isActive && !guideDialog?.open, reducedMotion.matches, stage.zoomRatio);
     if (stage.isSettled) {
       gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
-      palmLight.update(delta, reducedMotion.matches, renderer.getPixelRatio(), drawingSize.y);
+      palmLight.update(delta, reducedMotion.matches, renderer.getPixelRatio(), drawingSize.y, controls.getAzimuthalAngle());
       gratitudePrompt.update(delta);
       greeting.update();
     }
+    atmosphere.update(rotationDim, palmLight.dimStrength);
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
   return {
     canUseHands: () => stage.isSettled && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open,
     setHandInput: input => palmLight.input(input, stage.isSettled && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open),
-    lightFromPalm: () => stage.isSettled && palmLight.start(),
+    lightFromPalm: () => { if (!stage.isSettled) return false; palmLight.start(); interaction.starlight(2); return true; },
     setTheme: theme => { treeTheme.set(theme); if (theme === 'snow') interaction.snowfall(); },
     addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
     setVoiceLevel: value => gratitude.setVoiceLevel(value),

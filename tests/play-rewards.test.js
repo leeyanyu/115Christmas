@@ -68,3 +68,16 @@ test('snow and stars retain varied size and opacity at the same age', () => {
   assert.equal(p.material.uniforms.focusDistance.value, 15);
   r.dispose();
 });
+test('palm stars can be brighter without increasing particle count; other bursts keep their original brightness', () => {
+  const scene = new THREE.Scene(), rewards = createPlayRewards(scene, 96);
+  const points = scene.getObjectByName('christmas-surprises');
+  rewards.stars(new THREE.Vector3(0, 4, 0), false, true, 2);
+  rewards.update(.2, 1);
+  assert.equal(points.material.uniforms.starBrightness.value, 2);
+  assert.equal([...points.geometry.attributes.alpha.array].filter(v => v > 0).length, 24);
+  rewards.stars(new THREE.Vector3(0, 4, 0), false);
+  assert.equal(points.material.uniforms.starBrightness.value, 1);
+  rewards.stars(new THREE.Vector3(0, 4, 0), true, false, 2);
+  assert.ok(points.material.uniforms.starBrightness.value <= 1.25);
+  rewards.dispose();
+});

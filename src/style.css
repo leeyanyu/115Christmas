@@ -44,6 +44,7 @@ body:has(main:not(.awakened)) .invitation{opacity:.48}
 main::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 69% 48%,#040c1726 0%,#030b1ac2 70%,#020914e6 100%);opacity:var(--rotation-dim,0)}
 #scene{z-index:1}
 .stage-active::before{background:radial-gradient(ellipse at 50% 44%,#040c1726 0%,#030b1ac2 70%,#020914e6 100%)}
+main::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,#02091466 0%,#020914bd 58%,#010613ee 100%);opacity:var(--palm-dim,0)}
 main.stage-settled .reveal{bottom:125px}
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap;border:0!important}
 .voice-panel{display:none;position:fixed;z-index:6;right:calc(6% + 120px);bottom:32px;gap:14px;align-items:center;color:#ead4a2;--voice-level:0}.stage-settled .voice-panel{display:flex}

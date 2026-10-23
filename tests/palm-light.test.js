@@ -38,6 +38,9 @@ test('palm light charges the star then flows downward, fading with pooled resour
   for (let i = 0; i < 15; i++) effect.update(.1, false);
   assert.ok(halo.material.uniforms.head.value < top);
   assert.equal(particles.visible, true);
+  effect.update(2.3, false);
+  assert.ok(halo.material.uniforms.afterglow.value > .5, 'the light remains after the front has passed');
+  assert.ok(effect.dimStrength > .5); assert.equal(halo.visible, true);
   effect.update(3, false); assert.equal(effect.isFlowing, false);
   for (let j = 0; j < 20; j++) { effect.start(); for (let i = 0; i < 60; i++) effect.update(.1, false); }
   assert.equal(tree.root.children.length, count); assert.equal(particles.geometry, geometry);
@@ -49,6 +52,18 @@ test('reduced motion uses dimmer light without dispersing particles', () => {
   const particles = tree.root.children.findLast(o => o.name === 'interaction-starlight');
   effect.start(); for (let i = 0; i < 20; i++) effect.update(.1, true);
   assert.equal(particles.visible, false);
-  assert.ok(tree.root.getObjectByName('palm-flow-lamp').intensity < 1);
+  assert.ok(tree.root.getObjectByName('palm-flow-lamp').intensity < 2);
+  assert.ok(effect.dimStrength < .4);
+  effect.dispose();
+});
+test('the flow lamp faces the viewer even when the tree has turned around', () => {
+  const tree = createTree(), effect = createPalmLight(tree);
+  tree.root.rotation.y = Math.PI;
+  effect.start(); effect.update(2, false, 1, 800, .3);
+  const lamp = tree.root.getObjectByName('palm-flow-lamp');
+  const world = lamp.getWorldPosition(lamp.position.clone());
+  assert.ok(world.z > 0);
+  assert.ok(Math.abs(Math.atan2(world.x, world.z) - .3) < .001);
+  effect.reset(); assert.equal(effect.dimStrength, 0); assert.equal(effect.isRotating, false);
   effect.dispose();
 });
