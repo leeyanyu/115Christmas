@@ -204,6 +204,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
   }
   frame = requestAnimationFrame(animate);
   return {
+    get isChangingDesign() { return designStage.isMoving; },
     applyDesign: (design, active) => { palmLight.reset(); campfire.reset(); visitors.reset(); gifts.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); designStage.apply(design, active); },
     canUseHands: () => stage.isSettled && !designStage.isMoving && !editorDialog?.open && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open,
     setHandInput: input => palmLight.input(input, stage.isSettled && !designStage.isMoving && !editorDialog?.open && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open),

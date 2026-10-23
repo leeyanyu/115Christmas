@@ -11,7 +11,7 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
   function configure() { scene?.configure(tool, $('[name="ornamentColor"]').value, +$('[name="ornamentSize"]').value); }
   function update() {
     const value = history.value; scene?.apply(value);
-    for (const name of ['title', 'blessing', 'foliageColor', 'starColor']) {
+    for (const name of ['title', 'blessing', 'engraving', 'foliageColor', 'starColor']) {
       const input = $('[name="' + name + '"]');
       if (document.activeElement !== input) input.value = value[name];
     }
@@ -30,6 +30,11 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
     const button = event.target.closest('button'); if (!button) return;
     if (button.hasAttribute('data-cancel')) dialog.close();
     if (button.dataset.tool) { selected = undefined; scene?.select(); $('[data-delete]').disabled = true; tool = button.dataset.tool; dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b === button))); $('[data-editor-notice]').textContent = tool === 'view' ? '拖曳旋轉，雙指或滾輪縮放。' : tool === 'remove' ? '輕點裝飾即可移除。' : '點枝葉放上裝飾；點裝飾可選取，拖曳可換位置。'; configure(); }
+    if (button.dataset.view) {
+      tool = 'view'; dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool))); configure();
+      if (button.dataset.view === 'engraving') scene?.showEngraving(); else scene?.frameTree();
+      $('[data-editor-notice]').textContent = button.dataset.view === 'engraving' ? '拖曳欣賞刻字，按「看整棵樹」返回。' : '拖曳旋轉，雙指或滾輪縮放。';
+    }
     if (button.dataset.foliage) commit({ ...history.value, foliageColor: button.dataset.foliage });
     if (button.hasAttribute('data-undo')) { history.undo(); update(); }
     if (button.hasAttribute('data-redo')) { history.redo(); update(); }
@@ -37,7 +42,7 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
   }
   function input(event) {
     const { name, value } = event.target; if (!history) return;
-    if (['title', 'blessing', 'foliageColor', 'starColor'].includes(name)) commit({ ...history.value, [name]: value }, name);
+    if (['title', 'blessing', 'engraving', 'foliageColor', 'starColor'].includes(name)) commit({ ...history.value, [name]: value }, name);
     if (['ornamentColor', 'ornamentSize'].includes(name)) {
       if (selected) commit({ ...history.value, ornaments: history.value.ornaments.map(o => o.id === selected ? { ...o, [name === 'ornamentColor' ? 'color' : 'size']: name === 'ornamentColor' ? value : +value } : o) }, name + selected);
       configure();

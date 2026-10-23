@@ -50,8 +50,9 @@ function updateDesignUI() {
     if (button.dataset.treeTheme === 'classic') button.textContent = ownTree ? '作品原色' : '經典綠';
   });
 }
-function openEditor() { document.querySelector('#interaction-guide').close(); editor?.open(savedDesign); }
+function openEditor() { if (world?.isChangingDesign) return; document.querySelector('#interaction-guide').close(); editor?.open(savedDesign); }
 function visitTree() {
+  if (world?.isChangingDesign) return;
   if (!savedDesign) { openEditor(); return; }
   ownTree = !ownTree; world.applyDesign(savedDesign, ownTree); saveDesign(storage, savedDesign, ownTree); updateDesignUI();
   status.textContent = ownTree ? `${savedDesign.title} · ${savedDesign.blessing || '你的心意，點亮了冬夜。'}` : '歡迎回到格致聖誕樹 ✧';

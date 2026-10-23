@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createTree } from '../scene/tree.js';
 import { createOrnamentFactory } from './ornaments.js';
+import { createPedestalEngraving } from './pedestal-engraving.js';
 import { normalizeDesign } from './design.js';
 
 export function createDesignLayer(tree) {
@@ -9,12 +10,14 @@ export function createDesignLayer(tree) {
   const originalColors = new Map([...foliage].map(m => [m, m.color.clone()]));
   const group = new THREE.Group(); group.name = 'diy-ornaments'; tree.root.add(group);
   const items = new Map(), factory = createOrnamentFactory(), normal = new THREE.Vector3(), front = new THREE.Vector3(0, 0, 1);
+  const engraving = createPedestalEngraving(tree);
   let active = false, selected;
   return {
     get targets() { return active ? [...items.values()] : []; },
     getItem(id) { return items.get(id); },
     apply(value) {
       active = !!value; const design = value ? normalizeDesign(value) : null;
+      engraving.set(design?.engraving || '');
       original.forEach(o => { o.visible = !active; }); group.visible = active;
       foliage.forEach(m => m.color.copy(design ? new THREE.Color(design.foliageColor) : originalColors.get(m)));
       tree.starMaterial.color.copy(design ? new THREE.Color(design.starColor) : originalStar);
@@ -38,7 +41,7 @@ export function createDesignLayer(tree) {
         item.scale.setScalar(item.userData.baseSize * Math.max(.001, layer.scale.x));
       }
     },
-    dispose() { tree.root.remove(group); items.forEach(item => factory.disposeItem(item)); items.clear(); factory.dispose(); },
+    dispose() { engraving.dispose(); tree.root.remove(group); items.forEach(item => factory.disposeItem(item)); items.clear(); factory.dispose(); },
   };
 }
 

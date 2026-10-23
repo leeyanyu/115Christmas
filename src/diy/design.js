@@ -23,7 +23,7 @@ export function normalizeDesign(value = {}) {
       position: [clamp(item.position[0], -1.8, 1.8), clamp(item.position[1], .6, 3.75), clamp(item.position[2], -1.8, 1.8)],
       normal: length > .0001 ? raw.map(n => n / length) : [0, 0, 1] });
   }
-  return { version: 1, title: text(value.title, 28) || '我的聖誕樹', blessing: text(value.blessing, 90),
+  return { version: 1, title: text(value.title, 28) || '我的聖誕樹', blessing: text(value.blessing, 90), engraving: text(value.engraving, 16).trim(),
     foliageColor: color(value.foliageColor, '#164d3c'), starColor: color(value.starColor, '#eacb94'), ornaments };
 }
 

@@ -17,13 +17,14 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
   let current = design, tool = 'view', color = '#eacb94', size = 1, selected, down, frame, disposed = false;
   const render = () => { if (!frame && !disposed) frame = requestAnimationFrame(() => { frame = 0; renderer.render(scene, camera); }); };
   controls.addEventListener('change', render);
-  function resize() {
+  function frameTree() {
     const { width, height } = canvas.getBoundingClientRect(); if (!width || !height) return;
+    controls.target.set(0, 2, 0);
     renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix();
     const distance = Math.max(8.8, 2.1 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / camera.aspect);
-    camera.position.set(0, 2 + distance * .16, distance); controls.minDistance = distance * .65; controls.maxDistance = distance * 1.5; controls.update(); render();
+    camera.position.set(0, 2 + distance * .16, distance); controls.minDistance = 2.6; controls.maxDistance = distance * 1.5; controls.update(); render();
   }
-  const observer = new ResizeObserver(resize); observer.observe(canvas);
+  const observer = new ResizeObserver(frameTree); observer.observe(canvas);
   function hit(event, objects) {
     const rect = canvas.getBoundingClientRect(); pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
     tree.root.updateMatrixWorld(true); camera.updateMatrixWorld(); ray.setFromCamera(pointer, camera); return ray.intersectObjects(objects, true)[0];
@@ -71,8 +72,10 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
   }
   const cancel = () => { down = null; layer.apply(current); render(); };
   canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', cancel);
-  resize();
+  frameTree();
   return {
+    frameTree,
+    showEngraving() { controls.target.set(0, .2, -.9); camera.position.set(0, 1.8, -3.2); controls.update(); render(); },
     apply(value) { current = value; layer.apply(value); layer.select(selected); render(); },
     select(id) { selected = id; layer.select(id); render(); },
     configure(nextTool, nextColor, nextSize) { tool = nextTool; color = nextColor; size = nextSize; controls.enabled = tool === 'view'; },
