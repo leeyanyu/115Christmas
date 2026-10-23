@@ -1,4 +1,4 @@
-import { createDesignHistory, foliagePalette, MAX_ORNAMENTS } from './design.js';
+import { createDesignHistory, foliagePalette, MAX_ORNAMENTS, normalizeDesign } from './design.js';
 import { createEditorScene } from './editor-scene.js';
 
 export function createDesignEditor({ dialog, onSave, onOpen }) {
@@ -29,6 +29,13 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
   function click(event) {
     const button = event.target.closest('button'); if (!button) return;
     if (button.hasAttribute('data-cancel')) dialog.close();
+    if (button.hasAttribute('data-clear')) {
+      const { title, blessing } = history.value; selected = undefined; tool = 'view';
+      $('[name="ornamentColor"]').value = '#eacb94'; $('[name="ornamentSize"]').value = '1';
+      dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
+      commit(normalizeDesign({ title, blessing })); scene?.frameTree();
+      $('[data-editor-notice]').textContent = '裝飾與刻字已清除，配色恢復原樣；可以按「復原」找回。';
+    }
     if (button.dataset.tool) { selected = undefined; scene?.select(); $('[data-delete]').disabled = true; tool = button.dataset.tool; dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b === button))); $('[data-editor-notice]').textContent = tool === 'view' ? '拖曳旋轉，雙指或滾輪縮放。' : tool === 'remove' ? '輕點裝飾即可移除。' : '點枝葉放上裝飾；點裝飾可選取，拖曳可換位置。'; configure(); }
     if (button.dataset.view) {
       tool = 'view'; dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool))); configure();

@@ -29,7 +29,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(37, 1, .1, 60);
+  const camera = new THREE.PerspectiveCamera(37, 1, .1, 100);
   camera.position.set(6, 3.4, 8);
   const controls = new OrbitControls(camera, canvas);
   controls.target.set(0, 2, 0);
@@ -130,7 +130,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     },
     onSpark: () => interaction.starlight(),
   });
-  designStage = createDesignStage({ tree, theme: treeTheme, scene, camera, controls, canvas, label: document.querySelector('#diy-distant'), onActivate: () => diyOptions.onActivate?.(), initial: diyOptions.initial });
+  designStage = createDesignStage({ tree, theme: treeTheme, scene, camera, controls, canvas, onTransition: changing => { canvas.parentElement.setAttribute('aria-busy', String(changing)); canvas.closest('main').classList.toggle('design-changing', changing); }, onActivate: () => diyOptions.onActivate?.(), initial: diyOptions.initial });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
   // Observers run after animation callbacks. Never resize/clear a WebGL buffer

@@ -2,7 +2,7 @@ import { createDesignLayer } from './design-layer.js';
 import { createDistantTree } from './distant-tree.js';
 
 export function createDesignStage({ tree, theme, initial, ...options }) {
-  const layer = createDesignLayer(tree), distant = createDistantTree({ tree, ...options });
+  const layer = createDesignLayer(tree), distant = createDistantTree({ tree, foregroundTargets: () => layer.targets, ...options });
   let saved = initial?.design || null, active = !!(saved && initial.active);
   function style() { layer.apply(active ? saved : null); theme.setBaseColor(active ? saved.foliageColor : null); theme.set('classic'); }
   function backdrop() { distant.appearance(active ? null : saved, !saved); }

@@ -39,12 +39,12 @@ let editor;
 let storage;
 try { storage = window.localStorage; } catch { /* Session-only editing remains available. */ }
 let { design: savedDesign, active: ownTree } = loadDesign(storage);
-const visit = document.querySelector('#diy-visit');
-const edit = document.querySelector('#diy-edit');
+const visit = document.querySelector('#diy-switch');
 function updateDesignUI() {
   document.querySelector('main').classList.toggle('own-tree', ownTree);
-  visit.firstChild.textContent = ownTree ? '格致聖誕樹 ' : savedDesign ? '我的聖誕樹 ' : 'DIY 我的聖誕樹 ';
-  edit.hidden = !savedDesign;
+  visit.hidden = !savedDesign;
+  visit.textContent = ownTree ? '切換到格致原版' : '切換到我的作品';
+  document.querySelector('#diy-open').textContent = savedDesign ? '修改我的作品 ↗' : 'DIY 我的聖誕樹 ↗';
   document.querySelectorAll('[data-tree-theme]').forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.treeTheme === 'classic'));
     if (button.dataset.treeTheme === 'classic') button.textContent = ownTree ? '作品原色' : '經典綠';
@@ -54,6 +54,7 @@ function openEditor() { if (world?.isChangingDesign) return; document.querySelec
 function visitTree() {
   if (world?.isChangingDesign) return;
   if (!savedDesign) { openEditor(); return; }
+  document.querySelector('#interaction-guide').close();
   ownTree = !ownTree; world.applyDesign(savedDesign, ownTree); saveDesign(storage, savedDesign, ownTree); updateDesignUI();
   status.textContent = ownTree ? `${savedDesign.title} · ${savedDesign.blessing || '你的心意，點亮了冬夜。'}` : '歡迎回到格致聖誕樹 ✧';
 }
@@ -81,7 +82,7 @@ try {
     const stored = saveDesign(storage, design, true); updateDesignUI();
     status.textContent = stored ? `${design.title} · ${design.blessing || '你的作品已儲存，點遠方的樹可切回格致原版。'}` : '作品已套用；瀏覽器無法儲存，關閉分頁後不會保留。';
   } });
-  visit.addEventListener('click', visitTree); edit.addEventListener('click', openEditor); document.querySelector('#diy-open').addEventListener('click', openEditor);
+  visit.addEventListener('click', visitTree); document.querySelector('#diy-open').addEventListener('click', openEditor);
   button.addEventListener('click', () => {
     handCamera?.stop();
     voice?.stop();
