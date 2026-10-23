@@ -4,10 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-hand-assets.js",
     "dev": "vite --host 0.0.0.0",
+    "prebuild": "node scripts/copy-hand-assets.js",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
-  "dependencies": { "three": "^0.180.0" },
-  "devDependencies": { "vite": "^7.1.0" }
+  "dependencies": {
+    "@mediapipe/hands": "0.4.1675469240",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
 }

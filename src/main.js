@@ -5,6 +5,7 @@ import { createVoiceLight } from './integrations/voice-light.js';
 import { createInteractionGuide } from './integrations/interaction-guide.js';
 import { createChristmasMusic } from './integrations/christmas-music.js';
 import { christmasMusicMix } from './integrations/christmas-music-mix.js';
+import { createHandCamera } from './integrations/hand-camera.js';
 
 const button = document.querySelector('#awaken');
 const label = document.querySelector('#button-label');
@@ -22,6 +23,7 @@ const fullscreenControl = createFullscreenControl(
 let world;
 let voice;
 let guide;
+let handCamera;
 try {
   world = createWorld(document.querySelector('#tree-canvas'), () => {
     reveal.classList.add('visible');
@@ -40,6 +42,7 @@ try {
     status.textContent = '燈光已點亮，讓聖誕樹來到舞台中央…';
   }, (delta, turning) => music.update(delta, turning));
   button.addEventListener('click', () => {
+    handCamera?.stop();
     voice?.stop();
     music.resetMotion();
     reveal.classList.remove('visible');
@@ -54,6 +57,9 @@ try {
     meter: document.querySelector('#voice-meter'), onEnergy: amount => world.addVoiceEnergy(amount), onLevel: value => world.setVoiceLevel(value),
     onListening: active => music.setListening(active) });
   guide = createInteractionGuide({ button: document.querySelector('#interaction-help'), dialog: document.querySelector('#interaction-guide'), onTheme: theme => world.setTheme(theme), onOpen: () => voice?.stop() });
+  handCamera = createHandCamera({ button: document.querySelector('#hand-toggle'), note: document.querySelector('#hand-note'),
+    preview: document.querySelector('#hand-preview'), select: document.querySelector('#hand-camera-select'),
+    onInput: input => world.setHandInput(input), onLight: () => world.lightFromPalm(), canInteract: () => world.canUseHands() });
   button.disabled = true;
   label.textContent = '星光正在匯聚';
   status.textContent = '讓彩帶穿過冬夜，喚醒每一片枝葉…';
@@ -63,4 +69,4 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { guide?.dispose(); music.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { handCamera?.dispose(); guide?.dispose(); music.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
