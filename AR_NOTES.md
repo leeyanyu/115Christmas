@@ -5,17 +5,17 @@
 ## 範圍
 
 - 使用後鏡頭，在系統 AR 中偵測水平面、放置、縮放及轉向。
-- iPhone／iPad：Safari 的 AR Quick Look（USDZ）。Android：Scene Viewer（GLB），需支援 ARCore 並安裝 Google Play Services for AR。兩者是否支援及拍攝介面以實機為準。
+- iPhone／iPad：Safari 的 AR Quick Look（USDZ）。Android：透過 Google 應用程式的 Scene Viewer 1.2（GLB、ar_preferred），需支援 ARCore，並啟用、更新 Google 與 Google Play Services for AR。兩者是否支援及拍攝介面以實機為準。
 - 合照由系統 AR 的拍攝功能或手機截圖保存。網站沒有自製快門、相簿，也不接收影像。
 - AR 資產只有原版樹、裝飾、燈串、星星與 GJ 底座；無薑餅人、禮物、粒子、下雪、音樂、自轉或手勢辨識。
-- 不支援的桌機顯示 3D 作品及分享入口；iOS 不支援的瀏覽器提醒改用 Safari；Android 啟動失敗回到本頁顯示支援條件，不假裝已進入 AR。
+- 不支援的桌機顯示 3D 作品及分享入口；iOS 不支援的瀏覽器提醒改用 Safari；Android 啟動失敗回到本頁，或停留網頁超過三秒，顯示替代入口及 Google／AR 服務更新連結；從系統返回也提供排解。系統可能先開啟 3D 預覽，需選擇 AR／「在你的空間中查看」才是實景；網頁不能判定外部檢視器是否已成功追蹤平面。
 
 ## 檔案與建置
 
 - `src/ar/model.js`：呼叫既有 `createTree()`，另建靜態 AR 模型；PBR 材質、暖燈與水平面原點，初始高度 1.65 公尺。不改主網站場景。
 - `scripts/build-ar-assets.js`：沿用 Three.js 的 GLTFExporter／USDZExporter，產出 `public/ar/models/gj-2026.glb` 與 `.usdz`。`npm run dev`、`npm run build` 均會先產生，也可執行 `npm run build:ar`。不新增套件。
 - `src/ar/catalog.js`：作品清單，包含 id、標題、作者、班級、祝福、GLB、USDZ 與初始尺寸。
-- `src/ar/launch.js`：裝置分流、系統 AR 啟動網址、分享網址及 Android 回退頁面。
+- `src/ar/launch.js`：裝置分流、系統 AR 啟動網址、分享網址及 Android 回退頁面。`launch-feedback.js` 處理未交接及返回時的提示，不宣稱外部 AR 已成功啟動。Android 入口參照 Google model-viewer 的 Scene Viewer 啟動方式：https://github.com/google/model-viewer/blob/master/packages/model-viewer/src/features/ar.ts 。
 - `src/ar/preview.js`：按需繪製的靜態模型預覽；不開啟相機、音訊或辨識模型。離頁釋放模型及 GPU 資源，返回時重建。
 - `ar.html`、`src/ar/main.js`、`src/ar/style.css`：獨立作品頁；Vite 設定同時建置首頁與 AR 頁，沿用 GitHub Pages 子路徑。
 

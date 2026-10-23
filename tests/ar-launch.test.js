@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { arTrees, findARTree } from '../src/ar/catalog.js';
-import { arPlatform, arLaunchURL, arShareURL } from '../src/ar/launch.js';
+import { arPlatform, arLaunchURL, arShareURL, androidViewerURL } from '../src/ar/launch.js';
 
 const page = 'https://leeyanyu.github.io/115Christmas/ar.html?tree=gj-2026';
 test('AR uses native placement on supported iOS and Android, with honest browser fallback', () => {
@@ -15,9 +15,14 @@ test('AR uses native placement on supported iOS and Android, with honest browser
   assert.equal(arLaunchURL(tree, 'desktop', page, '/115Christmas/'), null);
   assert.equal(arLaunchURL(tree, 'ios-browser', page, '/115Christmas/'), null);
   const intent = arLaunchURL(tree, 'scene-viewer', page, '/115Christmas/');
-  assert.match(intent, /package=com.google.ar.core;/);
+  assert.match(intent, /scene-viewer\/1\.2/);
+  assert.match(intent, /package=com.google.android.googlequicksearchbox;/);
   const params = new URLSearchParams(intent.split('?')[1].split('#Intent')[0]);
-  assert.equal(params.get('mode'), 'ar_only', 'do not present a floating 3D viewer as anchored AR');
+  assert.equal(params.get('mode'), 'ar_preferred', 'ask the Google-app viewer to enter AR when available');
+  const alternate = androidViewerURL(tree, page, '/115Christmas/');
+  assert.equal(alternate.protocol, 'https:');
+  assert.equal(alternate.searchParams.get('file'), params.get('file'));
+  assert.equal(alternate.searchParams.get('mode'), 'ar_preferred');
   assert.equal(params.get('resizable'), 'true');
   assert.equal(params.get('file'), 'https://leeyanyu.github.io/115Christmas/ar/models/gj-2026.glb');
   const fallback = new URL(decodeURIComponent(intent.match(/S.browser_fallback_url=([^;]+)/)[1]));

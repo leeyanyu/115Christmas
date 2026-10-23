@@ -1,13 +1,14 @@
 import './style.css';
 import { findARTree } from './catalog.js';
-import { arPlatform, arLaunchURL, arShareURL } from './launch.js';
+import { arPlatform, arLaunchURL, arShareURL, androidViewerURL } from './launch.js';
+import { createARLaunchFeedback } from './launch-feedback.js';
 import { createARPreview } from './preview.js';
 
 const query = new URLSearchParams(location.search);
 const tree = findARTree(query.get('tree') ?? undefined);
 const launch = document.querySelector('#ar-launch'), support = document.querySelector('#ar-support');
 const previewStatus = document.querySelector('#preview-status');
-let preview, controller;
+let preview, controller, launchFeedback;
 
 if (!tree) {
   document.querySelector('#work-title').textContent = '找不到這棵聖誕樹';
@@ -35,6 +36,18 @@ if (!tree) {
       : '請用支援 AR 的 iPhone 或 Android 手機開啟此頁，將聖誕樹放到身邊。';
   }
   if (query.has('ar-fallback')) support.textContent = '此手機尚未啟動 AR。請用支援 ARCore 的 Android 手機與 Chrome，並確認已安裝及更新「Google Play Services for AR」。仍可在這裡欣賞作品。';
+
+  if (platform === 'scene-viewer') {
+    const help = document.querySelector('#android-ar-help');
+    const alternate = document.querySelector('#ar-browser-launch');
+    alternate.href = androidViewerURL(tree, location.href, import.meta.env.BASE_URL).href;
+    support.textContent = '開啟系統檢視器後，若先看到 3D 預覽，請選擇「在你的空間中查看」或 AR 按鈕。';
+    if (query.has('ar-fallback')) {
+      support.textContent = '系統檢視器未能開啟。請試試下方連結，並確認 Google 與 AR 服務已啟用及更新。';
+      help.hidden = false; help.open = true;
+    }
+    launchFeedback = createARLaunchFeedback({ links: [launch, alternate], note: support, help });
+  }
 
   const shareURL = arShareURL(tree, location.href);
   const share = document.querySelector('#share-tree');
@@ -66,4 +79,4 @@ if (!tree) {
   window.addEventListener('pagehide', () => { controller?.abort(); preview?.dispose(); });
   window.addEventListener('pageshow', event => { if (event.persisted) loadPreview(); });
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { controller?.abort(); preview?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { controller?.abort(); preview?.dispose(); launchFeedback?.dispose(); });
