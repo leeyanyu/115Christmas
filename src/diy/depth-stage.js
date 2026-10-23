@@ -16,16 +16,19 @@ export function createDepthStage(scene, backdrop = scene) {
     const mesh = new THREE.Mesh(geometry, material); mesh.rotation.x = -Math.PI / 2; mesh.position.y = -.043; root.add(mesh); return mesh;
   }
   const foregroundPool = patch(0x52727a, .10, 1.8); foregroundPool.scale.set(15, 22, 1); foregroundPool.position.y = -.046;
-  const rearPool = patch(0x71868b, .12, 1.8); rearPool.scale.set(10, 14, 1); rearPool.position.y = -.046;
+  const rearPool = patch(0xb9ad8a, .13, 1.8); rearPool.scale.set(10, 14, 1); rearPool.position.y = -.046;
   const foregroundContact = patch(0x020912, .28, 3.2); foregroundContact.scale.set(4.3, 4.3, 1);
+  const movingContact = patch(0x020912, .28, 3.2); movingContact.scale.set(4.3, 4.3, 1); movingContact.visible = false;
   const rearContact = patch(0x07101a, .30, 3.2); rearContact.scale.set(4.3, 4.3, 1);
   rear.add(rearPool, rearContact);
   return {
-    update(ready, front, rear, rearVisible) {
+    update(ready, front, rearPosition, rearVisible, departing = null) {
       root.visible = ready; rear.visible = ready;
       foregroundContact.position.x = front.x; foregroundContact.position.z = front.z;
-      rearContact.position.x = rear.x; rearContact.position.z = rear.z; rearContact.visible = rearVisible;
-      rearPool.position.x = rear.x; rearPool.position.z = rear.z; rearPool.visible = rearVisible;
+      movingContact.visible = ready && !!departing;
+      if (departing) { movingContact.position.x = departing.x; movingContact.position.z = departing.z; }
+      rearContact.position.x = rearPosition.x; rearContact.position.z = rearPosition.z; rearContact.visible = rearVisible;
+      rearPool.position.x = rearPosition.x; rearPool.position.z = rearPosition.z; rearPool.visible = rearVisible;
     },
     dispose() { scene.remove(root); backdrop.remove(rear); geometry.dispose(); [...root.children, ...rear.children].forEach(o => o.material.dispose()); },
   };

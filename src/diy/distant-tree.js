@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createDisplayTree } from './design-layer.js';
 import { createTreeHandoff } from './tree-handoff.js';
 import { createDepthStage } from './depth-stage.js';
+import { createForestBackdrop } from './forest-backdrop.js';
 
 function dispose(root) {
   const geometries = new Set(), materials = new Set(), textures = new Set();
@@ -46,11 +47,12 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
   const backdrop = new THREE.Scene(), backdropCamera = camera.clone();
   scene.children.filter(o => o.isLight).forEach(light => backdrop.add(light.clone()));
   let root, moving = false, elapsed = 0, handoff, anchored = false, viewport = '', referenceDistance = 10, damping = controls.enableDamping;
-  const far = new THREE.Vector3(), source = new THREE.Vector3(), projection = new THREE.Vector3(), forward = new THREE.Vector3(), right = new THREE.Vector3();
+  const far = new THREE.Vector3(), source = new THREE.Vector3(), forward = new THREE.Vector3(), right = new THREE.Vector3();
   const baseDirection = new THREE.Vector3(), backdropTarget = new THREE.Vector3(), mapping = new THREE.Matrix4();
   const sourceQuaternion = new THREE.Quaternion(), frontQuaternion = new THREE.Quaternion(), departingQuaternion = new THREE.Quaternion(), spin = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0);
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), mist = new THREE.Color(0x233d4a);
   const ground = createDepthStage(scene, backdrop);
+  const forest = createForestBackdrop(backdrop);
   let enabled = false, down;
   function releaseControls() { controls.enabled = true; controls.enableDamping = damping; }
   function appearance(design, bare) {
@@ -65,8 +67,9 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
     forward.copy(backdropTarget).sub(backdropCamera.position); forward.y = 0; forward.normalize();
     right.setFromMatrixColumn(backdropCamera.matrixWorld, 0); right.y = 0; right.normalize();
     const depth = Math.min(referenceDistance * 4.4, backdropCamera.far - 10);
-    const side = depth * Math.tan(THREE.MathUtils.degToRad(backdropCamera.fov / 2)) * backdropCamera.aspect * (innerWidth <= 700 ? .79 : .70);
+    const side = depth * Math.tan(THREE.MathUtils.degToRad(backdropCamera.fov / 2)) * backdropCamera.aspect * (innerWidth <= 700 ? .56 : .64);
     far.set(backdropCamera.position.x, 0, backdropCamera.position.z).addScaledVector(forward, depth).addScaledVector(right, side);
+    forest.place(far, right);
     anchored = true;
   }
   function finish() {
@@ -103,7 +106,7 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
       source.copy(far).applyMatrix4(mapping); sourceQuaternion.setFromRotationMatrix(mapping);
       departingQuaternion.copy(tree.root.quaternion);
       frontQuaternion.setFromAxisAngle(axis, Math.atan2(camera.position.x, camera.position.z));
-      handoff = createTreeHandoff(camera, source, tree.root.rotation.y);
+      handoff = createTreeHandoff(camera, source);
       appearance(design, bare); scene.add(root); elapsed = 0; moving = true;
       tree.root.position.copy(source); tree.root.quaternion.copy(sourceQuaternion);
       if (entrance) entrance.hidden = true; onTransition(true);
@@ -112,6 +115,7 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
     update(delta, ready, reducedMotion, zoomRatio = 1) {
       if (!root) return;
       root.visible = ready; enabled = false; if (entrance) entrance.hidden = !ready || moving;
+      forest.setVisible(ready);
       if (!ready) { ground.update(false, tree.root.position, far, false); return; }
       const nextViewport = `${innerWidth}:${innerHeight}`;
       if (moving && nextViewport !== viewport) finish();
@@ -122,23 +126,18 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
         tree.root.position.copy(state.incoming);
         tree.root.quaternion.slerpQuaternions(sourceQuaternion, frontQuaternion, state.enter).multiply(spin.setFromAxisAngle(axis, reducedMotion ? 0 : Math.PI * 2 * state.enter));
         root.position.copy(state.outgoing);
-        const t = THREE.MathUtils.smoothstep(elapsed, 0, 3.2);
+        const t = state.enter;
         root.quaternion.slerpQuaternions(departingQuaternion, sourceQuaternion, t).multiply(spin.setFromAxisAngle(axis, reducedMotion ? 0 : Math.PI * 2 * t));
         retreat = THREE.MathUtils.smoothstep(elapsed, 0, 1.2);
         if (state.done) finish();
       } else { root.position.copy(far); root.quaternion.identity(); }
       root.scale.setScalar(1); tree.root.scale.setScalar(1);
       root.traverse(o => { if (o.material?.userData.baseColor) {
-        o.material.color.copy(o.material.userData.baseColor).lerp(mist, .68 * retreat).multiplyScalar(1 - .20 * retreat);
+        o.material.color.copy(o.material.userData.baseColor).lerp(mist, .38 * retreat).multiplyScalar(1 - .08 * retreat);
         if (o.material.emissive) o.material.emissiveIntensity = o.material.userData.baseEmissiveIntensity * (1 - .94 * retreat);
       } });
-      enabled = !moving; ground.update(true, tree.root.position, far, !moving);
-      if (entrance && !moving) {
-        entrance.hidden = false; projection.copy(far).project(backdropCamera); const rect = canvas.getBoundingClientRect();
-        entrance.style.left = `${Math.max(8, Math.min(innerWidth - entrance.offsetWidth - 8, rect.left + (projection.x + 1) * rect.width / 2 - entrance.offsetWidth / 2))}px`;
-        entrance.style.top = `${Math.min(innerHeight - 140, rect.top + (1 - projection.y) * rect.height / 2 + 7)}px`;
-      }
+      enabled = !moving; ground.update(true, tree.root.position, far, !moving, moving ? root.position : null);
     },
-    dispose() { canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('pointermove', move); ground.dispose(); if (moving) releaseControls(); if (root) { root.removeFromParent(); dispose(root); } backdrop.clear(); if (entrance) entrance.hidden = true; onTransition(false); },
+    dispose() { canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('pointermove', move); ground.dispose(); forest.dispose(); if (moving) releaseControls(); if (root) { root.removeFromParent(); dispose(root); } backdrop.clear(); if (entrance) entrance.hidden = true; onTransition(false); },
   };
 }
