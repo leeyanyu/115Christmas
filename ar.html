@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071323" />
+    <meta name="description" content="把格致聖誕樹放進身邊的真實空間，和孩子留下聖誕合照。" />
+    <title>把聖誕樹帶到身邊 · GJ Christmas</title>
+  </head>
+  <body>
+    <header class="ar-header"><a href="./" aria-label="回到格致聖誕網站">GJ <span>CHRISTMAS</span></a><a class="back-link" href="./">回到冬夜 ↗</a></header>
+    <main class="ar-layout">
+      <section class="ar-intro" aria-labelledby="ar-title">
+        <p class="eyebrow">A TREE, ANYWHERE</p>
+        <h1 id="ar-title">把聖誕樹，<br />帶到你們身邊。</h1>
+        <p class="intro">選一個喜歡的角落，讓孩子站在樹旁，<br />留下一張屬於你們的聖誕合照。</p>
+      </section>
+      <section class="preview-card" aria-label="聖誕樹作品預覽">
+        <canvas id="ar-preview" tabindex="0" aria-label="聖誕樹立體預覽，可拖曳轉向或雙指縮放"></canvas>
+        <p id="preview-status" class="preview-status" role="status">正在準備聖誕樹…</p>
+        <p class="preview-hint" id="preview-hint" hidden>拖曳轉向 · 雙指縮放</p>
+      </section>
+      <section class="ar-actions" aria-label="放置聖誕樹與合照">
+        <p class="work-credit"><span id="work-title">格致聖誕樹</span><span id="work-author">格致中學</span></p>
+        <p id="work-blessing" class="blessing"></p>
+        <!-- Quick Look requires an image as the link's child. The visible text
+             comes from the accessible label so this remains a native AR link. -->
+        <a id="ar-launch" class="ar-launch" aria-label="放在眼前的空間" hidden><img src="./ar-mark.svg" width="25" height="25" alt="" /></a>
+        <p id="ar-support" class="support" role="status"></p>
+        <ol id="ar-steps" class="ar-steps" hidden>
+          <li>對準光線充足的地板或桌面，慢慢移動手機。</li>
+          <li>找到平面後放置聖誕樹，調整大小與方向。</li>
+          <li>讓孩子站在樹旁，使用系統拍攝功能或截圖保存合照。</li>
+        </ol>
+        <button id="share-tree" class="share-button" type="button">分享這棵聖誕樹 ↗</button>
+        <p id="share-note" class="support" role="status" aria-live="polite"></p>
+        <label id="share-link-label" class="support" for="share-link" hidden>複製連結，在手機開啟</label>
+        <input id="share-link" class="share-link" type="url" readonly hidden aria-label="這棵聖誕樹的合照連結" />
+        <a id="default-tree" class="back-link" href="./ar.html?tree=gj-2026" hidden>看看格致聖誕樹 ↗</a>
+      </section>
+    </main>
+    <footer>GJ CHRISTMAS 2026 · A LITTLE LIGHT, WHEREVER YOU ARE.</footer>
+    <script type="module" src="/src/ar/main.js"></script>
+  </body>
+</html>

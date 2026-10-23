@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-hand-assets.js",
+    "predev": "node scripts/copy-hand-assets.js && node scripts/build-ar-assets.js",
     "dev": "vite --host 0.0.0.0",
-    "prebuild": "node scripts/copy-hand-assets.js",
+    "prebuild": "node scripts/copy-hand-assets.js && node scripts/build-ar-assets.js",
+    "build:ar": "node scripts/build-ar-assets.js",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0"
   },

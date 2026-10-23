@@ -130,6 +130,7 @@ main.stage-settled .gratitude{bottom:calc(81px + env(safe-area-inset-bottom));li
 @media(max-width:700px){.visitor-greeting{font-size:19px}.greeting-rays{width:80px;height:30px}}
 
 /* Camera controls share the quiet upper corner; no panel covers the tree. */
+.ar-entry{display:none;position:fixed;z-index:7;top:123px;right:calc(6% + 166px);width:38px;height:38px;align-items:center;justify-content:center;border:1px solid #d7c38f66;border-radius:50%;background:#0c1d2bd9}.stage-settled .ar-entry{display:flex}.ar-entry:hover{background:#17303fe6}.ar-entry:focus-visible{outline:2px solid #fff0bc;outline-offset:5px}.ar-guide-link a{color:#e7d3a4;text-decoration:none;border-bottom:1px solid #d7c38f55;font:12px/2 "Noto Serif TC",serif}.is-fullscreen .ar-entry{visibility:hidden;pointer-events:none}@media(max-width:700px){.ar-entry{top:90px;right:calc(7% + 48px)}main:has(.hand-button) .ar-entry{right:calc(7% + 96px)}}
 .hand-capture{position:fixed;top:0;left:0;width:2px;height:2px;opacity:.01;pointer-events:none}
 .hand-button[hidden],.hand-setup[hidden]{display:none}
 .hand-button{display:none;position:fixed;z-index:7;top:123px;right:calc(6% + 116px);width:38px;min-height:38px;padding:0;justify-content:center;border:1px solid #d7c38f66;border-radius:50%;background:#0c1d2bd9;color:#e7d3a4}
