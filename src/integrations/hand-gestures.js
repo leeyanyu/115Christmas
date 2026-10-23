@@ -27,14 +27,18 @@ export function createHandGestures({ holdSeconds = 1, releaseSeconds = .7 } = {}
   function suspend() { previous = filtered = holdAnchor = null; hold = 0; lastTime = null; }
   function update(palm, now) {
     const gap = lastTime === null ? 0 : now - lastTime;
-    const dt = gap > 0 && gap <= .35 ? gap : 0;
+    // Rotation can bridge a slower sample; lighting still requires continuous
+    // stable observations and never counts a long stalled frame toward a hold.
+    const dt = gap > 0 && gap <= .9 ? gap : 0;
     lastTime = now;
     let turn = 0, trigger = false, state = 'searching';
     if (!palm) {
       missingSince ??= now;
       if (now - missingSince >= releaseSeconds) latched = false;
-      previous = filtered = holdAnchor = null; hold = 0; loweredSince = null;
-      return { present: false, turn, trigger, progress: 0, state };
+      const grace = !!previous && now - missingSince < .3;
+      if (!grace) previous = filtered = null;
+      holdAnchor = null; hold = 0; loweredSince = null;
+      return { present: false, grace, turn, trigger, progress: 0, state };
     }
     missingSince = null;
     if (palm.y > .86) {
@@ -52,21 +56,21 @@ export function createHandGestures({ holdSeconds = 1, releaseSeconds = .7 } = {}
     const smoothing = 1 - Math.exp(-dt * 12);
     const dx = palm.x - previous.x, dy = palm.y - previous.y;
     // A sudden tracking handoff/reacquisition must not spin the tree.
-    if (Math.hypot(dx, dy) > .18) {
+    if (Math.hypot(dx, dy) > .45) {
       suspend();
       return { present: true, turn, trigger, progress: 0, state: 'ready' };
     }
     filtered.x += (palm.x - filtered.x) * smoothing;
     filtered.y += (palm.y - filtered.y) * smoothing;
     const travel = filtered.x - rotationAnchor;
-    if (Math.abs(travel) >= .006) { turn = clamp(travel * 3.2, -.22, .22); rotationAnchor = filtered.x; }
+    if (Math.abs(travel) >= .004) { turn = clamp(travel * 4, -1.2, 1.2); rotationAnchor = filtered.x; }
     const moving = Math.hypot(dx, dy) / dt > .11
       || (holdAnchor && distance(palm, holdAnchor) > .024);
     previous = { ...palm };
-    if (moving || !palm.open) {
+    if (moving || !palm.open || gap > .65 || !holdAnchor) {
       hold = 0; holdAnchor = { ...palm }; state = moving ? 'moving' : 'ready';
     } else if (latched) { hold = 0; state = 'latched'; }
-    else { hold += dt; state = 'holding'; }
+    else { hold += Math.min(dt, .25); state = 'holding'; }
     if (hold >= holdSeconds) { latched = true; trigger = true; hold = 0; state = 'latched'; }
     return { present: true, turn, trigger, progress: latched ? 0 : clamp(hold / holdSeconds, 0, 1), state };
   }

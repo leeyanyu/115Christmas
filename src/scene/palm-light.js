@@ -43,12 +43,12 @@ export function createPalmLight(tree, capacity = 72) {
   let queuedTurn = 0, present = false, freshness = 1;
   const smooth = THREE.MathUtils.smoothstep;
   return {
-    get isPresent() { return present && freshness < .55; },
+    get isPresent() { return present && freshness < .8; },
     get isFlowing() { return elapsed >= 0; },
     input(input, ready) {
-      freshness = 0; present = input.present;
+      freshness = 0; present = input.present || input.grace;
       targetCharge = ready ? input.progress || 0 : 0;
-      if (present && ready) queuedTurn = THREE.MathUtils.clamp(queuedTurn + input.turn, -.5, .5);
+      if (present && ready) queuedTurn = THREE.MathUtils.clamp(queuedTurn + input.turn, -1.5, 1.5);
       else queuedTurn = 0;
     },
     // A fresh presentation can restart the wave; storage stays bounded even
@@ -57,7 +57,7 @@ export function createPalmLight(tree, capacity = 72) {
     rotate(delta, reducedMotion, ready) {
       freshness += delta;
       if (!ready || !this.isPresent) { queuedTurn = 0; targetCharge = 0; return; }
-      const step = THREE.MathUtils.clamp(queuedTurn * (1 - Math.exp(-delta * 5)), -delta * .7, delta * .7);
+      const step = THREE.MathUtils.clamp(queuedTurn * (1 - Math.exp(-delta * 9)), -delta * 1.5, delta * 1.5);
       tree.root.rotation.y += step * (reducedMotion ? .4 : 1);
       queuedTurn -= step;
       if (Math.abs(queuedTurn) < .0001) queuedTurn = 0;

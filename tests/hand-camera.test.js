@@ -13,6 +13,7 @@ function setup() {
   }
   const button = new Button(), note = {}, doc = new EventTarget(), win = new EventTarget();
   const preview = { currentTime: 0, readyState: 4, videoWidth: 640, videoHeight: 480, async play() {}, pause() {} };
+  const capture = { ...preview };
   let stopped = 0;
   const track = { stop() { stopped++; } };
   const stream = { getTracks: () => [track] };
@@ -20,8 +21,8 @@ function setup() {
     requestAnimationFrame: callback => { frames.set(++frameId, callback); return frameId; }, cancelAnimationFrame: id => frames.delete(id) })) {
     Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
   }
-  return { button, note, preview, doc, win, stream, get stopped() { return stopped; },
-    frame(now) { const next = frames.entries().next().value; if (next) { frames.delete(next[0]); preview.currentTime += .1; next[1](now); } },
+  return { button, note, preview, capture, doc, win, stream, get stopped() { return stopped; },
+    frame(now) { const next = frames.entries().next().value; if (next) { frames.delete(next[0]); capture.currentTime += .1; next[1](now); } },
     restore() { for (const [key, descriptor] of Object.entries(saved)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } } };
 }
 test('camera permission is opt-in; late permission, model initialization, and denied access are cleaned up', async () => {
@@ -68,4 +69,20 @@ test('a detector error stops the camera and remains retryable', async () => {
     assert.match(s.note.textContent, /辨識暫時中斷/); assert.equal(s.stopped, 1); assert.equal(closed, 1);
     s.button.dispatchEvent(new Event('click')); await flush(); assert.equal(s.button.attributes['aria-pressed'], 'true');
   } finally { effect?.dispose(); await flush(); s.restore(); }
+});
+test('a suspended hidden preview cannot stall the independent capture source', async () => {
+  const s = setup(); let effect;
+  try {
+    let frames = 0;
+    s.preview.play = async () => { throw new Error('preview is not visible'); };
+    effect = createHandCamera({ ...s, onInput() {}, onLight() {}, createDetector: async ({ onProgress, signal }) => {
+      assert.equal(signal.aborted, false); onProgress({ phase: 'download', loaded: 2097152 });
+      assert.match(s.note.textContent, /2.0 MB/);
+      return { detect(video) { assert.equal(video, s.capture); frames++; return null; }, close() {} };
+    } });
+    s.button.dispatchEvent(new Event('click')); await flush();
+    s.frame(100); await flush(); s.frame(300); await flush();
+    assert.equal(frames, 2); assert.equal(s.preview.currentTime, 0);
+    effect.stop(); assert.equal(s.capture.srcObject, null);
+  } finally { effect?.dispose(); s.restore(); }
 });

@@ -7,13 +7,24 @@ test('palm rotation is eased, bounded, pauses while blocked and does not touch c
   const tree = createTree(), effect = createPalmLight(tree);
   effect.input({ present: true, turn: .4, progress: 0 }, true);
   effect.rotate(.1, false, true);
-  assert.ok(tree.root.rotation.y > 0 && tree.root.rotation.y <= .07);
+  assert.ok(tree.root.rotation.y > 0 && tree.root.rotation.y <= .15 + 1e-10);
   const angle = tree.root.rotation.y;
   effect.rotate(.1, false, false); assert.equal(tree.root.rotation.y, angle);
   effect.input({ present: true, turn: .2, progress: 0 }, true);
-  effect.rotate(.6, false, true); assert.equal(effect.isPresent, false);
+  effect.rotate(.9, false, true); assert.equal(effect.isPresent, false);
   assert.equal(tree.root.rotation.y, angle, 'stale detections stop motion');
   effect.reset(); assert.equal(effect.isPresent, false); effect.dispose();
+});
+test('brief missing observations ease out existing motion, while explicit camera stop cancels it', () => {
+  const tree = createTree(), effect = createPalmLight(tree);
+  effect.input({ present: true, turn: .8, progress: 0 }, true);
+  effect.rotate(.05, false, true); const angle = tree.root.rotation.y;
+  effect.input({ present: false, grace: true, turn: 0, progress: 0 }, true);
+  effect.rotate(.05, false, true); assert.ok(tree.root.rotation.y > angle);
+  effect.input({ present: false, turn: 0, progress: 0, reset: true }, true);
+  const stopped = tree.root.rotation.y;
+  effect.rotate(.1, false, true); assert.equal(tree.root.rotation.y, stopped);
+  effect.dispose();
 });
 test('palm light charges the star then flows downward, fading with pooled resources', () => {
   const tree = createTree(), effect = createPalmLight(tree, 36);

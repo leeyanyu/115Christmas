@@ -129,6 +129,7 @@ main.stage-settled .gratitude{bottom:calc(81px + env(safe-area-inset-bottom));li
 @media(max-width:700px){.visitor-greeting{font-size:19px}.greeting-rays{width:80px;height:30px}}
 
 /* Camera controls share the quiet upper corner; no panel covers the tree. */
+.hand-capture{position:fixed;top:0;left:0;width:2px;height:2px;opacity:.01;pointer-events:none}
 .hand-button{display:none;position:fixed;z-index:7;top:123px;right:calc(6% + 116px);width:38px;min-height:38px;padding:0;justify-content:center;border:1px solid #d7c38f66;border-radius:50%;background:#0c1d2bd9;color:#e7d3a4}
 .stage-settled .hand-button{display:flex}.hand-button:hover{background:#17303fe6;box-shadow:none}.hand-button[aria-pressed=true]{border-color:#eacb94;background:#423a254d}.hand-button[data-hand-state=moving],.hand-button[data-hand-state=holding]{box-shadow:0 0 14px #eacb9430}
 .hand-progress{position:absolute;inset:-2px;width:40px;height:40px;transform:rotate(-90deg);pointer-events:none}.hand-progress circle{fill:none;stroke:#fff0cc;stroke-width:1.6;stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset .12s linear}

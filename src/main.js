@@ -58,7 +58,7 @@ try {
     onListening: active => music.setListening(active) });
   guide = createInteractionGuide({ button: document.querySelector('#interaction-help'), dialog: document.querySelector('#interaction-guide'), onTheme: theme => world.setTheme(theme), onOpen: () => voice?.stop() });
   handCamera = createHandCamera({ button: document.querySelector('#hand-toggle'), note: document.querySelector('#hand-note'),
-    preview: document.querySelector('#hand-preview'), select: document.querySelector('#hand-camera-select'),
+    preview: document.querySelector('#hand-preview'), capture: document.querySelector('#hand-capture'), select: document.querySelector('#hand-camera-select'),
     onInput: input => world.setHandInput(input), onLight: () => world.lightFromPalm(), canInteract: () => world.canUseHands() });
   button.disabled = true;
   label.textContent = '星光正在匯聚';

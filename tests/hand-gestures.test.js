@@ -38,14 +38,37 @@ test('brief tracking loss, stalled inference and hand handoffs cannot retrigger 
   assert.equal(hold(g, 5.3, 20).filter(s => s.trigger).length, 1);
   g.reset(); g.update(palm(), 0); g.update(palm(), .8);
   assert.equal(g.update(palm(), 1.6).trigger, false);
-  assert.equal(g.update(palm(.9), 1.7).turn, 0);
+  assert.equal(g.update(palm(.99), 1.7).turn, 0);
   g.suspend(); assert.equal(g.update(palm(.1), 1.8).turn, 0);
+});
+test('normal quick sweeps and 400 ms observations still rotate without falsely accumulating a hold', () => {
+  const g = createHandGestures(); g.update(palm(.25), 0);
+  const sweep = g.update(palm(.5), .15);
+  assert.ok(sweep.turn > .5, 'quick hand travel is not discarded as an outlier');
+  assert.equal(sweep.trigger, false); assert.equal(sweep.progress, 0);
+  const slower = g.update(palm(.75), .55);
+  assert.ok(slower.turn > .5, 'a slower detector must still produce rotation');
+  assert.equal(slower.progress, 0);
+  assert.equal(g.update(null, .65).grace, true);
+  const recovered = g.update(palm(.8), .75);
+  assert.ok(recovered.turn > 0, 'a brief missed hand retains the motion reference');
+  g.update(null, .85); assert.equal(g.update(null, 1.25).grace, false);
+  assert.equal(g.update(palm(.2), 1.35).turn, 0, 'a newly entering hand does not jump');
 });
 test('holding tolerates small detection jitter, and suspension preserves the once-per-hand latch', () => {
   const g = createHandGestures();
   const states = Array.from({ length: 25 }, (_, i) => g.update(palm(.5 + Math.sin(i) * .002), i * .1));
   assert.equal(states.filter(s => s.trigger).length, 1);
   g.suspend(); assert.equal(hold(g, 3, 20).some(s => s.trigger), false);
+});
+test('a slower but continuous detector can still confirm a held palm without counting an entire stall', () => {
+  const g = createHandGestures();
+  const states = Array.from({ length: 7 }, (_, i) => g.update(palm(), i * .4));
+  assert.equal(states.filter(s => s.trigger).length, 1);
+  assert.equal(states.slice(0, 4).some(s => s.trigger), false);
+  g.reset(); g.update(palm(), 0);
+  assert.equal(g.update(palm(), 2).trigger, false);
+  assert.equal(g.update(palm(), 2).progress, 0);
 });
 test('palm geometry recognizes an open tilted hand, rejects a fist, and mirrors camera coordinates', () => {
   const xy = [[.5,.75],[.45,.70],[.4,.64],[.34,.59],[.28,.56],
