@@ -1,32 +1,34 @@
-# AR 合照第一版
+# 聖誕樹實景合照
 
-入口：主畫面右上角的 AR 圖示，或問號說明中的「AR 合照」。獨立頁面為 `ar.html?tree=gj-2026`。
+入口：首頁右上角合照圖示，或問號說明中的「實景合照」。獨立作品頁沿用 `ar.html?tree=gj-2026`，舊分享連結仍可使用。
 
-## 範圍
+## 目前版本
 
-- 使用後鏡頭，在系統 AR 中偵測水平面、放置、縮放及轉向。
-- iPhone／iPad：Safari 的 AR Quick Look（USDZ）。Android：透過 Google 應用程式的 Scene Viewer 1.2（GLB、ar_preferred），需支援 ARCore，並啟用、更新 Google 與 Google Play Services for AR。兩者是否支援及拍攝介面以實機為準。
-- 合照由系統 AR 的拍攝功能或手機截圖保存。網站沒有自製快門、相簿，也不接收影像。
-- AR 資產只有原版樹、裝飾、燈串、星星與 GJ 底座；無薑餅人、禮物、粒子、下雪、音樂、自轉或手勢辨識。
-- 不支援的桌機顯示 3D 作品及分享入口；iOS 不支援的瀏覽器提醒改用 Safari；Android 啟動失敗回到本頁，或停留網頁超過三秒，顯示替代入口及 Google／AR 服務更新連結；從系統返回也提供排解。系統可能先開啟 3D 預覽，需選擇 AR／「在你的空間中查看」才是實景；網頁不能判定外部檢視器是否已成功追蹤平面。
+直接在 HTTPS 網頁內以 `getUserMedia` 開啟後鏡頭，將同一棵靜態 3D 聖誕樹疊在鏡頭畫面。支援拖曳放置、雙指／滑桿縮放、拍照、重拍、下載及裝置支援時的照片分享。無轉向、角色、雪花、粒子、音樂或手勢辨識，也不再跳轉 Scene Viewer／Quick Look。
 
-## 檔案與建置
+**這是畫面合成，不是世界座標錨定。** 樹固定在畫面中的位置，移動手機後要手動重新對齊。不偵測地板、不自動處理人物遮擋；讓孩子站在樹旁取景。照片只在裝置內產生，不上傳。
 
-- `src/ar/model.js`：呼叫既有 `createTree()`，另建靜態 AR 模型；PBR 材質、暖燈與水平面原點，初始高度 1.65 公尺。不改主網站場景。
-- `scripts/build-ar-assets.js`：沿用 Three.js 的 GLTFExporter／USDZExporter，產出 `public/ar/models/gj-2026.glb` 與 `.usdz`。`npm run dev`、`npm run build` 均會先產生，也可執行 `npm run build:ar`。不新增套件。
-- `src/ar/catalog.js`：作品清單，包含 id、標題、作者、班級、祝福、GLB、USDZ 與初始尺寸。
-- `src/ar/launch.js`：裝置分流、系統 AR 啟動網址、分享網址及 Android 回退頁面。`launch-feedback.js` 處理未交接及返回時的提示，不宣稱外部 AR 已成功啟動。Android 入口參照 Google model-viewer 的 Scene Viewer 啟動方式：https://github.com/google/model-viewer/blob/master/packages/model-viewer/src/features/ar.ts 。
-- `src/ar/preview.js`：按需繪製的靜態模型預覽；不開啟相機、音訊或辨識模型。離頁釋放模型及 GPU 資源，返回時重建。
-- `ar.html`、`src/ar/main.js`、`src/ar/style.css`：獨立作品頁；Vite 設定同時建置首頁與 AR 頁，沿用 GitHub Pages 子路徑。
+## 模組
 
-## 後續學生作品
+- `src/ar/rear-camera.js`：只請求影像，優先後鏡頭；處理等待畫面、權限拒絕、取消及遲到的相機串流。
+- `src/ar/photo-layout.js`：拖曳／雙指縮放、完整樹形邊界，以及與 `object-fit: cover` 一致的照片裁切。
+- `src/ar/photo-tree.js`：固定視角的透明背景 3D 樹，按需繪製；合照時以輸出解析度重繪。
+- `src/ar/photo-capture.js`：合成鏡頭與樹、輸出 JPEG，長邊最多 1920 像素，不放大原始影像。
+- `src/ar/camera-photo.js`：合照視窗、鏡頭生命週期、拍照／重拍／分享；關閉、背景化、錯誤或拍照完成會停止鏡頭。重拍／關閉回收照片 URL 與模型資源。
+- `src/ar/catalog.js`：每棵作品的固定 id、標題、班級、作者、祝福與模型路徑。未知 id 不會替換成別人的作品。
 
-每件作品需一組 GLB／USDZ 與固定 id；在 catalog 登錄後，以 `ar.html?tree=作品id` 分享。班級作品選單、學生編輯器、上傳儲存、審核及後端尚未實作。未知 id 顯示找不到作品，避免錯誤呈現其他學生的樹。
+`preview.js` 仍提供作品的獨立 3D 預覽，開啟合照時釋放，關閉後重建。預覽的轉向不影響合照固定視角。
 
-目前建置腳本只輸出格致原版樹；新增作品須另提供對應資產，不會僅新增清單就自動生成。
+`launch.js` 中的原生 AR 連結與 `launch-feedback.js` 保留為先前實驗，目前合照入口不會呼叫它們；`launch.js` 只沿用純函式 `arShareURL`。
 
-## 驗證
+## 模型與後續作品
 
-自動檢查：模型高度與落地、GJ 字樣、材質與純靜態內容、裝置分流、網址及子路徑、Android 回退、不同作品 id、手機版 UI 與無相機權限請求。
+沿用原版樹、裝飾、暖燈、星星與 GJ 底座。`scripts/build-ar-assets.js` 使用既有 Three.js 匯出工具產生 GLB／USDZ；`npm run dev`、`npm run build` 自動執行，也可用 `npm run build:ar`。無新增網站套件。合照只載入 GLB。
 
-實機驗收：iPhone Safari／ARCore Android Chrome 分別測試平面偵測、放置、移動手機後錨定、縮放轉向、人物站旁合照及返回原網站。雲端瀏覽器只能驗證系統 AR 入口、資產與回退，不能驗證真實空間追蹤或系統拍照。
+未來每件學生作品提供固定 id 和自己的 GLB，登錄 catalog 後即可共用合照流程及獨立連結。班級選單、創作編輯器、上傳與後端尚未實作。
+
+## 驗證與限制
+
+單元測試涵蓋裁切、輸出尺寸、拖曳與雙指、完整樹形邊界、鏡頭取消／錯誤／遲到串流、合成順序和 JPEG 失敗。瀏覽器以虛擬攝影機檢查真實 WebGL 合成、照片下載、重拍、關閉、背景暫停、權限錯誤與手機排版。
+
+仍須三星 S22 Chrome 與 iPhone Safari 實機驗收：後鏡頭選擇、直橫向取景、雙指操作、合照內容與實際儲存／分享位置。雲端虛擬鏡頭不能證明實機相機表現。照片下載位置與可用分享目標由瀏覽器及系統決定。

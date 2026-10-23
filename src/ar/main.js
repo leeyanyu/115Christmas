@@ -1,14 +1,14 @@
 import './style.css';
 import { findARTree } from './catalog.js';
-import { arPlatform, arLaunchURL, arShareURL, androidViewerURL } from './launch.js';
-import { createARLaunchFeedback } from './launch-feedback.js';
+import { arShareURL } from './launch.js';
 import { createARPreview } from './preview.js';
+import { createCameraPhoto } from './camera-photo.js';
 
 const query = new URLSearchParams(location.search);
 const tree = findARTree(query.get('tree') ?? undefined);
 const launch = document.querySelector('#ar-launch'), support = document.querySelector('#ar-support');
-const previewStatus = document.querySelector('#preview-status');
-let preview, controller, launchFeedback;
+const previewStatus = document.querySelector('#preview-status'), photoDialog = document.querySelector('#photo-studio');
+let preview, controller, cameraPhoto;
 
 if (!tree) {
   document.querySelector('#work-title').textContent = '找不到這棵聖誕樹';
@@ -18,43 +18,24 @@ if (!tree) {
   document.querySelector('#default-tree').hidden = false;
   document.querySelector('#share-tree').hidden = true;
 } else {
-  document.title = `${tree.title} · AR 合照 · GJ Christmas`;
+  document.title = `${tree.title} · 實景合照 · GJ Christmas`;
   document.querySelector('#work-title').textContent = tree.title;
   document.querySelector('#work-author').textContent = [tree.className, tree.author].filter(Boolean).join(' · ');
   document.querySelector('#work-blessing').textContent = tree.blessing;
-  let quickLook = false;
-  try { quickLook = launch.relList.supports('ar'); } catch { /* Not available in every browser. */ }
-  const platform = arPlatform(navigator, quickLook);
-  const href = arLaunchURL(tree, platform, location.href, import.meta.env.BASE_URL);
-  if (href) {
-    launch.href = href; launch.hidden = false;
-    if (platform === 'quick-look') { launch.rel = 'ar'; launch.type = 'model/vnd.usdz+zip'; }
-    document.querySelector('#ar-steps').hidden = false;
-    support.textContent = '開啟後將由手機的 AR 畫面帶你放置聖誕樹。';
-  } else {
-    support.textContent = platform === 'ios-browser' ? '請用 iPhone／iPad 的 Safari 開啟此頁，再進入 AR 合照。'
-      : '請用支援 AR 的 iPhone 或 Android 手機開啟此頁，將聖誕樹放到身邊。';
-  }
-  if (query.has('ar-fallback')) support.textContent = '此手機尚未啟動 AR。請用支援 ARCore 的 Android 手機與 Chrome，並確認已安裝及更新「Google Play Services for AR」。仍可在這裡欣賞作品。';
-
-  if (platform === 'scene-viewer') {
-    const help = document.querySelector('#android-ar-help');
-    const alternate = document.querySelector('#ar-browser-launch');
-    alternate.href = androidViewerURL(tree, location.href, import.meta.env.BASE_URL).href;
-    support.textContent = '開啟系統檢視器後，若先看到 3D 預覽，請選擇「在你的空間中查看」或 AR 按鈕。';
-    if (query.has('ar-fallback')) {
-      support.textContent = '系統檢視器未能開啟。請試試下方連結，並確認 Google 與 AR 服務已啟用及更新。';
-      help.hidden = false; help.open = true;
-    }
-    launchFeedback = createARLaunchFeedback({ links: [launch, alternate], note: support, help });
-  }
+  launch.hidden = false;
+  document.querySelector('#ar-steps').hidden = false;
+  support.textContent = '手動調整樹在鏡頭畫面中的位置與大小；移動手機取景後，請重新對齊。照片只在裝置內合成。';
+  const modelURL = new URL(tree.glb, new URL(import.meta.env.BASE_URL, location.href)).href;
+  cameraPhoto = createCameraPhoto({ button: launch, dialog: photoDialog, modelURL, title: tree.title,
+    onOpen() { controller?.abort(); preview?.dispose(); preview = undefined; },
+    onClose() { loadPreview(); } });
 
   const shareURL = arShareURL(tree, location.href);
   const share = document.querySelector('#share-tree');
   share.addEventListener('click', async () => {
     const note = document.querySelector('#share-note');
     try {
-      if (navigator.share) await navigator.share({ title: `${tree.title} · AR 合照`, url: shareURL });
+      if (navigator.share) await navigator.share({ title: `${tree.title} · 聖誕合照`, url: shareURL });
       else { await navigator.clipboard.writeText(shareURL); note.textContent = '連結已複製，可傳到手機開啟。'; }
     } catch (error) {
       if (error.name === 'AbortError') return;
@@ -68,15 +49,14 @@ if (!tree) {
     controller?.abort(); controller = new AbortController();
     previewStatus.hidden = false; previewStatus.textContent = '正在準備聖誕樹…';
     try {
-      preview = await createARPreview(document.querySelector('#ar-preview'),
-        new URL(tree.glb, new URL(import.meta.env.BASE_URL, location.href)).href, { signal: controller.signal });
+      preview = await createARPreview(document.querySelector('#ar-preview'), modelURL, { signal: controller.signal });
       previewStatus.hidden = true; document.querySelector('#preview-hint').hidden = false;
     } catch (error) {
-      if (error.name !== 'AbortError') previewStatus.textContent = '預覽暫時無法顯示，可重新整理重試；支援的手機仍可按下方按鈕進入 AR。';
+      if (error.name !== 'AbortError') previewStatus.textContent = '預覽暫時無法顯示，請確認網路後重新整理。';
     }
   }
   loadPreview();
   window.addEventListener('pagehide', () => { controller?.abort(); preview?.dispose(); });
-  window.addEventListener('pageshow', event => { if (event.persisted) loadPreview(); });
+  window.addEventListener('pageshow', event => { if (event.persisted && !photoDialog.open) loadPreview(); });
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { controller?.abort(); preview?.dispose(); launchFeedback?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { cameraPhoto?.dispose(); controller?.abort(); preview?.dispose(); });
