@@ -1,3 +1,6 @@
+import './diy/style.css';
+import { createDesignEditor } from './diy/editor.js';
+import { loadDesign, saveDesign } from './diy/design.js';
 import './style.css';
 import { createWorld } from './scene/world.js';
 import { createFullscreenControl } from './integrations/fullscreen.js';
@@ -32,6 +35,28 @@ let world;
 let voice;
 let guide;
 let handCamera;
+let editor;
+let storage;
+try { storage = window.localStorage; } catch { /* Session-only editing remains available. */ }
+let { design: savedDesign, active: ownTree } = loadDesign(storage);
+const visit = document.querySelector('#diy-visit');
+const edit = document.querySelector('#diy-edit');
+function updateDesignUI() {
+  document.querySelector('main').classList.toggle('own-tree', ownTree);
+  visit.firstChild.textContent = ownTree ? '格致聖誕樹 ' : savedDesign ? '我的聖誕樹 ' : 'DIY 我的聖誕樹 ';
+  edit.hidden = !savedDesign;
+  document.querySelectorAll('[data-tree-theme]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.treeTheme === 'classic'));
+    if (button.dataset.treeTheme === 'classic') button.textContent = ownTree ? '作品原色' : '經典綠';
+  });
+}
+function openEditor() { document.querySelector('#interaction-guide').close(); editor?.open(savedDesign); }
+function visitTree() {
+  if (!savedDesign) { openEditor(); return; }
+  ownTree = !ownTree; world.applyDesign(savedDesign, ownTree); saveDesign(storage, savedDesign, ownTree); updateDesignUI();
+  status.textContent = ownTree ? `${savedDesign.title} · ${savedDesign.blessing || '你的心意，點亮了冬夜。'}` : '歡迎回到格致聖誕樹 ✧';
+}
+updateDesignUI();
 try {
   world = createWorld(document.querySelector('#tree-canvas'), () => {
     reveal.classList.add('visible');
@@ -48,7 +73,14 @@ try {
     document.querySelector('main').classList.add('stage-active', 'awakened');
     label.textContent = '聖誕樹正在登場';
     status.textContent = '燈光已點亮，讓聖誕樹來到舞台中央…';
-  }, (delta, turning) => music.update(delta, turning));
+  }, (delta, turning) => music.update(delta, turning), { initial: { design: savedDesign, active: ownTree }, onActivate: visitTree });
+  editor = createDesignEditor({ dialog: document.querySelector('#diy-editor'), onOpen: () => { voice?.stop(); handCamera?.stop(); music.resetMotion(); }, onSave: (design, error) => {
+    if (!design) { status.textContent = error; return; }
+    savedDesign = design; ownTree = true; world.applyDesign(design, true);
+    const stored = saveDesign(storage, design, true); updateDesignUI();
+    status.textContent = stored ? `${design.title} · ${design.blessing || '你的作品已儲存，點遠方的樹可切回格致原版。'}` : '作品已套用；瀏覽器無法儲存，關閉分頁後不會保留。';
+  } });
+  visit.addEventListener('click', visitTree); edit.addEventListener('click', openEditor); document.querySelector('#diy-open').addEventListener('click', openEditor);
   button.addEventListener('click', () => {
     handCamera?.stop();
     voice?.stop();
@@ -77,4 +109,4 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { handCamera?.dispose(); guide?.dispose(); music.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { editor?.dispose(); handCamera?.dispose(); guide?.dispose(); music.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });

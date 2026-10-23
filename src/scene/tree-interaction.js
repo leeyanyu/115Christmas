@@ -3,7 +3,7 @@ import { createPlayTriggers } from './play-triggers.js';
 import { createPlayRewards } from './play-rewards.js';
 import { createInteractionParticles } from './interaction-particles.js';
 
-export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked, onReward = () => {}, onTreeTouch = () => {}, visitorTargets = () => [], onVisitorTap = () => false }) {
+export function createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked, onReward = () => {}, onTreeTouch = () => {}, extraTargets = () => [], visitorTargets = () => [], onVisitorTap = () => false }) {
   const constrained = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 8) <= 4;
   const particles = createInteractionParticles(scene, constrained ? 48 : 96);
   const rewards = createPlayRewards(scene, constrained ? 96 : 192);
@@ -39,7 +39,8 @@ export function createTreeInteraction({ canvas, camera, controls, tree, scene, r
       return { point: starHit, object: star };
     }
     hits.length = 0;
-    raycaster.intersectObjects(targets, true, hits);
+    raycaster.intersectObjects(targets.filter(o => o.visible), true, hits);
+    raycaster.intersectObjects(extraTargets(), true, hits);
     raycaster.intersectObjects(visitorTargets(), true, hits);
     hits.sort((a, b) => a.distance - b.distance);
     const first = hits[0];

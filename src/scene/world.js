@@ -1,3 +1,4 @@
+import { createDesignStage } from '../diy/design-stage.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createRibbons } from './ribbons.js';
@@ -22,7 +23,7 @@ import { createContentRoot } from '../integrations/content.js';
 import { createVisitorGreeting } from '../integrations/visitor-greeting.js';
 import { createPalmLight } from './palm-light.js';
 
-export function createWorld(canvas, onComplete, onStageStart, onRotation = () => {}) {
+export function createWorld(canvas, onComplete, onStageStart, onRotation = () => {}, diyOptions = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -95,12 +96,14 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
   const gratitudePrompt = createGratitudePrompt(document.querySelector('#gratitude'), reducedMotion);
   const greeting = createTreeGreeting({ canvas, camera, tree, element: document.querySelector('#reveal') });
   const visitorGreeting = createVisitorGreeting({ canvas, visitors, element: document.querySelector('#visitor-greeting') });
-  let celebration, campfire;
+  let celebration, campfire, designStage;
+  const editorDialog = document.querySelector('#diy-editor');
   const gratitude = createGratitudeLight({ tree, onChange: state => {
     gratitudePrompt.show(state);
     if (state.phase === 'blooming') celebration?.start(reducedMotion.matches);
   } });
-  const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving,
+  const interaction = createTreeInteraction({ canvas, camera, controls, tree, scene, reducedMotion, isBlocked: () => stage.isMoving || designStage?.isMoving || editorDialog?.open,
+    extraTargets: () => designStage?.targets || [],
     visitorTargets: () => [...visitors.targets, ...gifts.hitTargets, ...(campfire?.targets ?? [])],
     onVisitorTap: object => object.userData.campfireGuest ? campfire.tap(object) : object.userData.holidayGift ? gifts.tap(object, camera) : visitors.tap(object),
     onTreeTouch: () => { if (stage.isSettled) gratitude.touch(); },
@@ -127,6 +130,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     },
     onSpark: () => interaction.starlight(),
   });
+  designStage = createDesignStage({ tree, theme: treeTheme, scene, camera, controls, canvas, label: document.querySelector('#diy-distant'), onActivate: () => diyOptions.onActivate?.(), initial: diyOptions.initial });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
   // Observers run after animation callbacks. Never resize/clear a WebGL buffer
@@ -165,28 +169,29 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     frame = requestAnimationFrame(animate);
     const delta = Math.min((now - previous) / 1000, .25);
     previous = now;
-    if (document.hidden) return;
+    if (document.hidden || editorDialog?.open) return;
     time += delta;
-    const handReady = stage.isSettled && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open;
+    const ready = stage.isSettled && !designStage.isMoving;
+    const handReady = ready && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open;
     palmLight.rotate(delta, reducedMotion.matches, handReady);
-    rotationGlow.beforeUpdate(delta, stage.isSettled && !palmLight.isPresent && !palmLight.isRotating && !palmLight.isFlowing && !celebration.isActive && !campfire.isActive && !visitors.isPerforming, reducedMotion.matches);
-    celebration.update(delta, stage.isSettled, reducedMotion.matches);
+    rotationGlow.beforeUpdate(delta, ready && !palmLight.isPresent && !palmLight.isRotating && !palmLight.isFlowing && !celebration.isActive && !campfire.isActive && !visitors.isPerforming, reducedMotion.matches);
+    celebration.update(delta, ready, reducedMotion.matches);
     controls.update(delta);
-    zoomOrbit.update(delta, reducedMotion.matches, stage.isSettled);
+    zoomOrbit.update(delta, reducedMotion.matches, ready);
     motes.update(time-sequenceStart, reducedMotion.matches);
     awakening.update(time, reducedMotion.matches);
     stage.update(time, reducedMotion.matches);
     // Any buffer allocation must be followed by a render in the same frame.
     syncRendererSize();
-    campfire.update(delta, camera, stage.isSettled, reducedMotion.matches, celebration.isActive);
+    campfire.update(delta, camera, ready, reducedMotion.matches, celebration.isActive);
     interaction.update(delta, renderer.getPixelRatio());
     rotationGlow.update(delta, reducedMotion.matches, renderer.getPixelRatio());
     onRotation(delta, stage.isSettled && rotationGlow.isTurning);
     treeTheme.update(delta, reducedMotion.matches);
-    visitors.update(delta, camera, stage.isSettled, reducedMotion.matches, !celebration.isActive && !guideDialog?.open);
-    visitorGreeting.update(camera, stage.isSettled && !celebration.isActive && !campfire.isActive && !guideDialog?.open);
-    gifts.update(delta, stage.isSettled, reducedMotion.matches);
-    hiddenGoodness.update(delta, camera, stage.isSettled && !celebration.isActive && !campfire.isActive && !guideDialog?.open, reducedMotion.matches, stage.zoomRatio);
+    visitors.update(delta, camera, ready, reducedMotion.matches, !celebration.isActive && !guideDialog?.open);
+    visitorGreeting.update(camera, ready && !celebration.isActive && !campfire.isActive && !guideDialog?.open);
+    gifts.update(delta, ready, reducedMotion.matches);
+    hiddenGoodness.update(delta, camera, ready && !celebration.isActive && !campfire.isActive && !guideDialog?.open, reducedMotion.matches, stage.zoomRatio);
     if (stage.isSettled) {
       gratitude.update(delta, reducedMotion.matches, renderer.getPixelRatio());
       palmLight.update(delta, reducedMotion.matches, renderer.getPixelRatio(), drawingSize.y, controls.getAzimuthalAngle());
@@ -194,17 +199,19 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
       greeting.update();
     }
     atmosphere.update(rotationDim, palmLight.dimStrength);
+    designStage.update(delta, stage.isSettled, reducedMotion.matches, stage.zoomRatio);
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);
   return {
-    canUseHands: () => stage.isSettled && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open,
-    setHandInput: input => palmLight.input(input, stage.isSettled && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open),
+    applyDesign: (design, active) => { palmLight.reset(); campfire.reset(); visitors.reset(); gifts.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); designStage.apply(design, active); },
+    canUseHands: () => stage.isSettled && !designStage.isMoving && !editorDialog?.open && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open,
+    setHandInput: input => palmLight.input(input, stage.isSettled && !designStage.isMoving && !editorDialog?.open && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open),
     lightFromPalm: () => { if (!stage.isSettled) return false; palmLight.start(); interaction.starlight(2); return true; },
     setTheme: theme => { treeTheme.set(theme); if (theme === 'snow') interaction.snowfall(); },
     addVoiceEnergy: amount => stage.isSettled && gratitude.addEnergy(amount),
     setVoiceLevel: value => gratitude.setVoiceLevel(value),
-    awaken: () => { palmLight.reset(); visitorGreeting.reset(); hiddenGoodness.reset(); campfire.reset(); gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
+    awaken: () => { designStage.reset(); controls.enabled = true; palmLight.reset(); visitorGreeting.reset(); hiddenGoodness.reset(); campfire.reset(); gifts.reset(); visitors.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); zoomOrbit.reset(); stage.reset(); requestResize(); sequenceStart = time; awakening.start(time); },
     dispose() {
       cancelAnimationFrame(frame);
       observer.disconnect();
@@ -222,6 +229,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
       visitors.dispose();
       gifts.dispose();
       hiddenGoodness.dispose();
+      designStage.dispose();
       treeTheme.dispose();
       zoomOrbit.dispose();
       controls.dispose();

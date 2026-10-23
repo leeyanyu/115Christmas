@@ -28,6 +28,21 @@
       <div id="scene" aria-label="可旋轉的立體聖誕樹"><canvas id="tree-canvas" tabindex="0" aria-label="聖誕樹，拖曳旋轉；手機雙指旋轉縮放，電腦可同時拖曳與滾輪縮放"></canvas><p class="gesture"><span>↔</span> 拖曳＋滾輪 · 雙指旋轉縮放</p></div>
       <div id="reveal" class="reveal" aria-hidden="true">Light Up <em>Christmas 2026</em></div>
       <p id="visitor-greeting" class="visitor-greeting" role="status" aria-live="polite" hidden><svg class="greeting-rays" viewBox="0 0 140 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M39 40 17 21 M11 15 5 10"/><path d="M55 32 45 9 M42 3 41 1"/><path d="M75 29 78 4"/><path d="M94 34 108 12 M113 6 116 2"/><path d="M108 43 131 28 M136 23 138 21"/></g></svg><span>Merry Xmas</span></p>
+
+      <div id="diy-distant" hidden><button id="diy-visit" type="button">DIY 我的聖誕樹 <span aria-hidden="true">↗</span></button><button id="diy-edit" type="button" hidden>編輯作品</button></div>
+      <dialog id="diy-editor" aria-labelledby="diy-title">
+        <form class="diy-shell">
+          <header class="diy-header"><div><p>YOUR LITTLE WONDER</p><h2 id="diy-title">我的聖誕樹</h2></div><button type="button" data-cancel aria-label="關閉編輯器">×</button></header>
+          <div class="diy-preview"><canvas aria-label="聖誕樹編輯預覽，選擇裝飾後輕點枝葉放置" tabindex="0"></canvas><p data-editor-notice role="status">拖曳旋轉，雙指或滾輪縮放。</p></div>
+          <section class="diy-panel" aria-label="作品設定">
+            <div class="diy-field"><label for="diy-name">作品名稱</label><input id="diy-name" name="title" maxlength="28" autocomplete="off" /></div>
+            <fieldset><legend>樹葉配色</legend><div data-palette class="diy-palette"></div><label class="diy-color">自選樹色<input name="foliageColor" type="color" aria-label="自選樹葉顏色" /></label><label class="diy-color">樹頂星光<input name="starColor" type="color" aria-label="樹頂星星顏色" /></label></fieldset>
+            <fieldset><legend>放上小小心意 <span data-count>0 / 36</span></legend><div class="diy-tools"><button type="button" data-tool="view" aria-pressed="true">↔ 旋轉</button><button type="button" data-tool="ball" aria-pressed="false">● 球飾</button><button type="button" data-tool="star" aria-pressed="false">✦ 星星</button><button type="button" data-tool="bow" aria-pressed="false">⋈ 蝴蝶結</button><button type="button" data-tool="gift" aria-pressed="false">▣ 禮物</button><button type="button" data-tool="remove" aria-pressed="false">− 移除</button></div><label class="diy-color">裝飾顏色<input name="ornamentColor" type="color" value="#eacb94" /></label><label class="diy-size">裝飾大小<input name="ornamentSize" type="range" min="0.6" max="1.8" step="0.1" value="1" /></label><div class="diy-actions"><button type="button" data-undo disabled>復原</button><button type="button" data-redo disabled>重做</button><button type="button" data-delete disabled>刪除選取</button></div></fieldset>
+            <div class="diy-field"><label for="diy-blessing">留一句祝福</label><textarea id="diy-blessing" name="blessing" maxlength="90" rows="2" placeholder="讓這棵樹，帶著你的心意。"></textarea></div>
+          </section>
+          <footer class="diy-footer"><p>作品儲存在此瀏覽器</p><button type="submit">完成，點亮我的樹 ↗</button></footer>
+        </form>
+      </dialog>
       <div id="stage-dock" aria-hidden="true"></div>
       <button id="interaction-help" class="help-button" type="button" aria-label="互動玩法與聖誕樹配色" title="互動玩法與配色" aria-haspopup="dialog">?</button>
       <dialog id="interaction-guide" aria-labelledby="guide-title">
@@ -36,7 +51,8 @@
         <dl><dt>輕觸，累積祝福</dt><dd>點樹面看星光，集滿 12 份祝福，讓樹旋轉、綻光、散星與下雪。</dd><dt>旋轉，尋找驚喜</dt><dd>快速拖曳可召喚星星；轉到背面，找找薑餅人與拐杖糖。輕點角色，它就會跳下來！牠們會隨機單獨或結伴回來爬樹；有時薑餅人會從側邊跳出，揮手說 Merry Xmas，再慢慢爬回樹後。偶爾還會邀你參加環樹跳舞的營火晚會。</dd><dt>連點星星，迎接雪花</dt><dd>連點樹頂星星三下，就能喚來一場雪。</dd><dt>用歌聲點亮</dt><dd>按麥克風，先安靜一秒，再唱歌或哼唱。聲音只在裝置內分析，不錄音、不上傳。</dd><dt>靠近看看</dt><dd>手機雙指、電腦滾輪可縮放。拖曳旋轉，欣賞不同角度。樹下的小禮物也能輕點，讓它滾走。</dd></dl>
         <dl><dt>樹叢裡的三好祝福</dt><dd>放大、再放大，轉動尋找藏在枝葉間的藍、綠、紅小人物。靠近看清楚，稍作停留，它們就會化成天使，帶著「好兒女、好學生、好國民」的祝福飛走。再次喚醒聖誕樹，就能重新尋找。</dd><dt>聽見冬夜</dt><dd>進入後播放聖誕音樂；若未響起，輕觸頁面即可。音符可開關，旋轉時加入鼓點與小號，停下後保留主旋律；使用麥克風時音樂暫停。</dd></dl>
         <fieldset><legend>今晚，想看哪一種冬夜？</legend><div class="theme-options"><button type="button" data-tree-theme="classic" aria-pressed="true">經典綠</button><button type="button" data-tree-theme="snow" aria-pressed="false">雪白</button><button type="button" data-tree-theme="aurora" aria-pressed="false">柔和極光</button></div></fieldset>
-        <p class="ar-guide-link"><a href="./ar.html?tree=gj-2026">把聖誕樹帶到身邊 · AR 合照 ↗</a></p>
+        <p class="diy-guide-link"><button id="diy-open" type="button">DIY 我的聖誕樹 ↗</button></p>
+        <p class="ar-guide-link"><a href="./ar.html?tree=gj-2026">格致原版聖誕樹 · AR 合照 ↗</a></p>
         <fieldset class="hand-setup" hidden><legend>用掌心，點亮冬夜</legend><p>聖誕樹登場後，按右上攝影機開啟。單手左右揮動可帶動旋轉，尾段會順勢甩出再柔和停下；張掌穩定停留約一秒，樹頂便會散出星星，背景漸暗，光沿樹往下流並留下暖亮的燈光。移動時優先旋轉；每次張掌只點亮一次，先放下手，再舉起即可重試。</p><p>一次一人，讓整隻手掌留在鏡頭內。攝影機請朝向觀眾；投影時保留手部的環境光。影像只在本機辨識，不錄影、不上傳。</p><label for="hand-camera-select">使用的攝影機</label><select id="hand-camera-select" disabled><option value="">預設攝影機（開啟後可選擇）</option></select><video id="hand-preview" autoplay muted playsinline hidden aria-label="鏡像攝影機取景預覽"></video><p>此處預覽為鏡像；關閉說明後即可用手勢互動。切換分頁或再次喚醒時，攝影機會關閉。</p></fieldset>
       </dialog>
       <p id="gratitude" class="gratitude" role="status" aria-live="polite" aria-atomic="true">輕觸聖誕樹，讓每一份感恩慢慢發光</p>
