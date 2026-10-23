@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { encodeDesign, decodeDesign, designARURL, designFromURL } from '../src/diy/design-link.js';
+import { normalizeDesign } from '../src/diy/design.js';
+const design = normalizeDesign({ title: '小明的聖誕樹', blessing: '平安喜樂 / Merry Xmas ✧', engraving: 'Amy 王小明', foliageColor: '#c78b9a', ornaments: Array.from({ length: 36 }, (_, i) => ({ id: i + 1, type: ['ball','star','bow','gift'][i % 4], color: '#eacb94', size: 1.3, position: [1.1234, 2.5678, -.9123], normal: [0,0,1] })) });
+const encoded = encodeDesign(design), decoded = decodeDesign(encoded);
+assert.ok(encoded.length < 14000); assert.deepEqual(decoded, design);
+const url = designARURL(design, 'https://example.com/115Christmas/?v=1');
+assert.ok(url.startsWith('https://example.com/115Christmas/ar.html?tree=diy#design=')); assert.deepEqual(designFromURL(url), design);
+for (const value of ['', '?', 'abc'.repeat(9000), btoa('{}'), btoa(JSON.stringify([2,'','','','','',[]]))]) assert.equal(decodeDesign(value), null);
+const malicious = btoa(JSON.stringify([1,'A','','','#ffffff','#ffffff', [['ball','#fff','bad',0,0,0,0,0,1]]])); assert.equal(decodeDesign(malicious), null);
+console.log('Portable DIY links preserve Unicode, all decorations and metadata, with bounded validation.');

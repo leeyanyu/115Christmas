@@ -8,6 +8,7 @@ export function createDesignStage({ tree, theme, initial, ...options }) {
   function backdrop() { distant.appearance(active ? null : saved, !saved); }
   style(); backdrop();
   return {
+    renderBackdrop(renderer) { distant.renderBackdrop(renderer); },
     get isMoving() { return distant.isMoving; },
     get targets() { return layer.targets; },
     apply(design, nextActive = true) {

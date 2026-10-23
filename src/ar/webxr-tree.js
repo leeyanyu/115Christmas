@@ -101,7 +101,7 @@ export function createWebXRTree({ overlay, canvas, url, onStatus, onError, onEnd
       onStatus('正在準備瀏覽器的 3D 空間 AR…');
       const response = await fetch(url, { signal: abort.signal });
       if (!response.ok) throw new Error('聖誕樹模型下載失敗');
-      const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), new URL('.', url).href);
+      const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), url.startsWith('blob:') ? '' : new URL('.', url).href);
       if (disposed) { disposeARTree(gltf.scene); return false; }
       model = gltf.scene; ready = true; return true;
     },

@@ -42,32 +42,36 @@ export function createDistantModel(design, bare) {
   return output;
 }
 
-export function createDistantTree({ scene, tree, camera, controls, canvas, onActivate, onTransition = () => {}, foregroundTargets = () => [] }) {
-  let root, moving = false, elapsed = 0, handoff, anchored = false, viewport = '', referenceDistance = 10;
-  let damping = controls.enableDamping;
-  const far = new THREE.Vector3(), projection = new THREE.Vector3(), forward = new THREE.Vector3(), right = new THREE.Vector3();
+export function createDistantTree({ scene, tree, camera, controls, canvas, onActivate, onTransition = () => {}, foregroundTargets = () => [], entrance }) {
+  const backdrop = new THREE.Scene(), backdropCamera = camera.clone();
+  scene.children.filter(o => o.isLight).forEach(light => backdrop.add(light.clone()));
+  let root, moving = false, elapsed = 0, handoff, anchored = false, viewport = '', referenceDistance = 10, damping = controls.enableDamping;
+  const far = new THREE.Vector3(), source = new THREE.Vector3(), projection = new THREE.Vector3(), forward = new THREE.Vector3(), right = new THREE.Vector3();
+  const baseDirection = new THREE.Vector3(), backdropTarget = new THREE.Vector3(), mapping = new THREE.Matrix4();
+  const sourceQuaternion = new THREE.Quaternion(), frontQuaternion = new THREE.Quaternion(), departingQuaternion = new THREE.Quaternion(), spin = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0);
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), mist = new THREE.Color(0x233d4a);
-  const ground = createDepthStage(scene);
+  const ground = createDepthStage(scene, backdrop);
   let enabled = false, down;
   function releaseControls() { controls.enabled = true; controls.enableDamping = damping; }
   function appearance(design, bare) {
-    if (root) { scene.remove(root); dispose(root); }
-    root = createDistantModel(design, bare); scene.add(root);
+    if (root) { root.removeFromParent(); dispose(root); }
+    root = createDistantModel(design, bare); backdrop.add(root);
   }
   function anchor() {
-    camera.updateMatrixWorld();
-    forward.copy(controls.target).sub(camera.position); forward.y = 0; forward.normalize();
-    right.setFromMatrixColumn(camera.matrixWorld, 0); right.y = 0; right.normalize();
-    const depth = Math.min(referenceDistance * 4.4, camera.far - 10);
-    const side = depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect * (innerWidth <= 700 ? .79 : .70);
-    far.set(camera.position.x, 0, camera.position.z).addScaledVector(forward, depth).addScaledVector(right, side);
+    backdropCamera.aspect = camera.aspect; backdropCamera.updateProjectionMatrix();
+    if (!anchored) { backdropTarget.copy(controls.target); baseDirection.copy(camera.position).sub(controls.target).normalize(); }
+    backdropCamera.position.copy(backdropTarget).addScaledVector(baseDirection, referenceDistance);
+    backdropCamera.lookAt(backdropTarget); backdropCamera.updateMatrixWorld();
+    forward.copy(backdropTarget).sub(backdropCamera.position); forward.y = 0; forward.normalize();
+    right.setFromMatrixColumn(backdropCamera.matrixWorld, 0); right.y = 0; right.normalize();
+    const depth = Math.min(referenceDistance * 4.4, backdropCamera.far - 10);
+    const side = depth * Math.tan(THREE.MathUtils.degToRad(backdropCamera.fov / 2)) * backdropCamera.aspect * (innerWidth <= 700 ? .79 : .70);
+    far.set(backdropCamera.position.x, 0, backdropCamera.position.z).addScaledVector(forward, depth).addScaledVector(right, side);
     anchored = true;
   }
-  function inBackground(position) {
-    camera.getWorldDirection(forward);
-    const depth = projection.copy(position).sub(camera.position).dot(forward);
-    const front = controls.target.distanceTo(camera.position);
-    return depth > front + 3 && depth < camera.far + 6;
+  function finish() {
+    moving = false; tree.root.position.set(0, 0, 0); tree.root.quaternion.copy(frontQuaternion);
+    backdrop.add(root); root.position.copy(far); root.quaternion.identity(); releaseControls(); onTransition(false);
   }
   function start(event) { if (event.isPrimary === false) { down = null; return; } if (event.button === 0) down = { id: event.pointerId, x: event.clientX, y: event.clientY }; }
   function move(event) { if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 7) down = null; }
@@ -77,9 +81,9 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
     const rect = canvas.getBoundingClientRect(); pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2);
     camera.updateMatrixWorld(); tree.root.updateWorldMatrix(true, true); root.updateWorldMatrix(true, true); ray.setFromCamera(pointer, camera);
     const near = [...tree.layers, ...tree.root.children.filter(o => o.isMesh && o.visible), ...foregroundTargets()];
-    const first = ray.intersectObjects([...near, root], true)[0];
-    let hit = first?.object; while (hit && hit !== root) hit = hit.parent;
-    if (hit === root) onActivate();
+    if (ray.intersectObjects(near, true).length) return;
+    ray.setFromCamera(pointer, backdropCamera);
+    if (ray.intersectObject(root, true).length) onActivate();
   }
   const cancel = () => { down = null; };
   canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointerup', end);
@@ -87,52 +91,54 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
   return {
     get isMoving() { return moving; },
     appearance,
+    renderBackdrop(renderer) { renderer.render(backdrop, backdropCamera); },
     swap(design, bare) {
       if (moving) return;
-      // Clear queued orbit inertia while retaining the exact displayed camera.
       const position = camera.position.clone(); damping = controls.enableDamping;
       controls.enableDamping = false; controls.enabled = false; controls.update?.();
       camera.position.copy(position); controls.update?.(); camera.updateMatrixWorld();
-      const projectedX = projection.copy(far).project(camera).x;
-      if (!anchored || !inBackground(far) || Math.abs(projectedX) > 1.1) anchor();
-      handoff = createTreeHandoff(camera, far, tree.root.rotation.y);
-      appearance(design, bare); elapsed = 0; moving = true; controls.enabled = false;
-      const initial = handoff.sample(0); tree.root.position.copy(initial.incoming); tree.root.scale.setScalar(1); tree.root.rotation.y = initial.incomingAngle;
-      onTransition(true);
+      // Camera-space conversion makes the first/last frames identical across
+      // the fixed scenery camera and the independently controlled main camera.
+      mapping.multiplyMatrices(camera.matrixWorld, backdropCamera.matrixWorldInverse);
+      source.copy(far).applyMatrix4(mapping); sourceQuaternion.setFromRotationMatrix(mapping);
+      departingQuaternion.copy(tree.root.quaternion);
+      frontQuaternion.setFromAxisAngle(axis, Math.atan2(camera.position.x, camera.position.z));
+      handoff = createTreeHandoff(camera, source, tree.root.rotation.y);
+      appearance(design, bare); scene.add(root); elapsed = 0; moving = true;
+      tree.root.position.copy(source); tree.root.quaternion.copy(sourceQuaternion);
+      if (entrance) entrance.hidden = true; onTransition(true);
     },
-    reset() { moving = false; anchored = false; tree.root.position.set(0, 0, 0); tree.root.scale.setScalar(1); releaseControls(); onTransition(false); },
+    reset() { moving = false; anchored = false; tree.root.position.set(0, 0, 0); tree.root.scale.setScalar(1); if (root) backdrop.add(root); releaseControls(); onTransition(false); },
     update(delta, ready, reducedMotion, zoomRatio = 1) {
       if (!root) return;
-      root.visible = ready; enabled = false;
+      root.visible = ready; enabled = false; if (entrance) entrance.hidden = !ready || moving;
       if (!ready) { ground.update(false, tree.root.position, far, false); return; }
-      camera.updateMatrixWorld();
       const nextViewport = `${innerWidth}:${innerHeight}`;
-      if (moving && nextViewport !== viewport) {
-        moving = false; tree.root.position.set(0, 0, 0); tree.root.rotation.y = Math.atan2(camera.position.x, camera.position.z);
-        anchored = false; releaseControls(); onTransition(false);
-      }
-      if (!anchored || (!moving && nextViewport !== viewport)) {
-        referenceDistance = camera.position.distanceTo(controls.target) * zoomRatio; anchor(); viewport = nextViewport;
-      }
+      if (moving && nextViewport !== viewport) finish();
+      if (!anchored || nextViewport !== viewport) { referenceDistance = camera.position.distanceTo(controls.target) * zoomRatio; anchor(); viewport = nextViewport; }
       let retreat = 1;
       if (moving) {
         elapsed += delta; const state = handoff.sample(elapsed, reducedMotion);
-        tree.root.position.copy(state.incoming); tree.root.rotation.y = state.incomingAngle;
-        root.position.copy(state.outgoing); root.rotation.y = state.outgoingAngle;
+        tree.root.position.copy(state.incoming);
+        tree.root.quaternion.slerpQuaternions(sourceQuaternion, frontQuaternion, state.enter).multiply(spin.setFromAxisAngle(axis, reducedMotion ? 0 : Math.PI * 2 * state.enter));
+        root.position.copy(state.outgoing);
+        const t = THREE.MathUtils.smoothstep(elapsed, 0, 3.2);
+        root.quaternion.slerpQuaternions(departingQuaternion, sourceQuaternion, t).multiply(spin.setFromAxisAngle(axis, reducedMotion ? 0 : Math.PI * 2 * t));
         retreat = THREE.MathUtils.smoothstep(elapsed, 0, 1.2);
-        if (state.done) { moving = false; releaseControls(); tree.root.position.set(0, 0, 0); onTransition(false); }
-      } else { root.position.copy(far); }
+        if (state.done) finish();
+      } else { root.position.copy(far); root.quaternion.identity(); }
       root.scale.setScalar(1); tree.root.scale.setScalar(1);
-      // Atmospheric perspective affects only the distant tree, preserving the
-      // foreground's original foliage, lights and invitation colors.
       root.traverse(o => { if (o.material?.userData.baseColor) {
         o.material.color.copy(o.material.userData.baseColor).lerp(mist, .68 * retreat).multiplyScalar(1 - .20 * retreat);
         if (o.material.emissive) o.material.emissiveIntensity = o.material.userData.baseEmissiveIntensity * (1 - .94 * retreat);
       } });
-      if (!moving) root.visible = inBackground(far);
-      enabled = !moving && root.visible && zoomRatio < 1.6;
-      ground.update(true, tree.root.position, root.position, root.visible);
+      enabled = !moving; ground.update(true, tree.root.position, far, !moving);
+      if (entrance && !moving) {
+        entrance.hidden = false; projection.copy(far).project(backdropCamera); const rect = canvas.getBoundingClientRect();
+        entrance.style.left = `${Math.max(8, Math.min(innerWidth - entrance.offsetWidth - 8, rect.left + (projection.x + 1) * rect.width / 2 - entrance.offsetWidth / 2))}px`;
+        entrance.style.top = `${Math.min(innerHeight - 140, rect.top + (1 - projection.y) * rect.height / 2 + 7)}px`;
+      }
     },
-    dispose() { canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('pointermove', move); ground.dispose(); if (moving) releaseControls(); if (root) { scene.remove(root); dispose(root); } onTransition(false); },
+    dispose() { canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('pointermove', move); ground.dispose(); if (moving) releaseControls(); if (root) { root.removeFromParent(); dispose(root); } backdrop.clear(); if (entrance) entrance.hidden = true; onTransition(false); },
   };
 }

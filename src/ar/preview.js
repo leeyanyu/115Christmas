@@ -56,7 +56,7 @@ export async function createARPreview(canvas, url, { signal } = {}) {
   try {
     const response = await fetch(url, { signal });
     if (!response.ok) throw new Error('無法載入聖誕樹');
-    const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), new URL('.', url).href);
+    const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), url.startsWith('blob:') ? '' : new URL('.', url).href);
     root = gltf.scene;
     if (disposed) { disposeARTree(root); throw new DOMException('Cancelled', 'AbortError'); }
     new THREE.Box3().setFromObject(root).getSize(size);

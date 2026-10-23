@@ -29,6 +29,7 @@
       <div id="reveal" class="reveal" aria-hidden="true">Light Up <em>Christmas 2026</em></div>
       <p id="visitor-greeting" class="visitor-greeting" role="status" aria-live="polite" hidden><svg class="greeting-rays" viewBox="0 0 140 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M39 40 17 21 M11 15 5 10"/><path d="M55 32 45 9 M42 3 41 1"/><path d="M75 29 78 4"/><path d="M94 34 108 12 M113 6 116 2"/><path d="M108 43 131 28 M136 23 138 21"/></g></svg><span>Merry Xmas</span></p>
 
+      <button id="diy-entrance" type="button" hidden>DIY聖誕樹</button>
       <dialog id="diy-editor" aria-labelledby="diy-title">
         <form class="diy-shell">
           <header class="diy-header"><div><p>YOUR LITTLE WONDER</p><h2 id="diy-title">我的聖誕樹</h2></div><div class="diy-header-actions"><button type="button" data-clear title="重置配色、裝飾與刻字，可復原">清除</button><button type="button" data-cancel aria-label="關閉編輯器">×</button></div></header>
@@ -52,7 +53,7 @@
         <dl><dt>樹叢裡的三好祝福</dt><dd>放大、再放大，轉動尋找藏在枝葉間的藍、綠、紅小人物。靠近看清楚，稍作停留，它們就會化成天使，帶著「好兒女、好學生、好國民」的祝福飛走。再次喚醒聖誕樹，就能重新尋找。</dd><dt>聽見冬夜</dt><dd>進入後播放聖誕音樂；若未響起，輕觸頁面即可。音符可開關，旋轉時加入鼓點與小號，停下後保留主旋律；使用麥克風時音樂暫停。</dd></dl>
         <fieldset><legend>今晚，想看哪一種冬夜？</legend><div class="theme-options"><button type="button" data-tree-theme="classic" aria-pressed="true">經典綠</button><button type="button" data-tree-theme="snow" aria-pressed="false">雪白</button><button type="button" data-tree-theme="aurora" aria-pressed="false">柔和極光</button></div></fieldset>
         <p class="diy-guide-link"><button id="diy-open" type="button">DIY 我的聖誕樹 ↗</button><button id="diy-switch" type="button" hidden>切換到另一棵樹</button></p><p class="diy-guide-note">輕點遠方的樹也能開始創作或交換作品。</p>
-        <p class="ar-guide-link"><a href="./ar.html?tree=gj-2026">格致原版聖誕樹 · AR 合照 ↗</a></p>
+        <p class="ar-guide-link"><a id="ar-guide-entry" href="./ar.html?tree=gj-2026">聖誕樹 · AR 合照 ↗</a></p>
         <fieldset class="hand-setup" hidden><legend>用掌心，點亮冬夜</legend><p>聖誕樹登場後，按右上攝影機開啟。單手左右揮動可帶動旋轉，尾段會順勢甩出再柔和停下；張掌穩定停留約一秒，樹頂便會散出星星，背景漸暗，光沿樹往下流並留下暖亮的燈光。移動時優先旋轉；每次張掌只點亮一次，先放下手，再舉起即可重試。</p><p>一次一人，讓整隻手掌留在鏡頭內。攝影機請朝向觀眾；投影時保留手部的環境光。影像只在本機辨識，不錄影、不上傳。</p><label for="hand-camera-select">使用的攝影機</label><select id="hand-camera-select" disabled><option value="">預設攝影機（開啟後可選擇）</option></select><video id="hand-preview" autoplay muted playsinline hidden aria-label="鏡像攝影機取景預覽"></video><p>此處預覽為鏡像；關閉說明後即可用手勢互動。切換分頁或再次喚醒時，攝影機會關閉。</p></fieldset>
       </dialog>
       <p id="gratitude" class="gratitude" role="status" aria-live="polite" aria-atomic="true">輕觸聖誕樹，讓每一份感恩慢慢發光</p>

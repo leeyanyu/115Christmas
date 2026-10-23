@@ -26,6 +26,7 @@ import { createPalmLight } from './palm-light.js';
 export function createWorld(canvas, onComplete, onStageStart, onRotation = () => {}, diyOptions = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  renderer.autoClear = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const scene = new THREE.Scene();
@@ -130,7 +131,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     },
     onSpark: () => interaction.starlight(),
   });
-  designStage = createDesignStage({ tree, theme: treeTheme, scene, camera, controls, canvas, onTransition: changing => { canvas.parentElement.setAttribute('aria-busy', String(changing)); canvas.closest('main').classList.toggle('design-changing', changing); }, onActivate: () => diyOptions.onActivate?.(), initial: diyOptions.initial });
+  designStage = createDesignStage({ tree, theme: treeTheme, scene, camera, controls, canvas, entrance: document.querySelector('#diy-entrance'), onTransition: changing => { canvas.parentElement.setAttribute('aria-busy', String(changing)); canvas.closest('main').classList.toggle('design-changing', changing); }, onActivate: () => diyOptions.onActivate?.(), initial: diyOptions.initial });
   let resizePending = true;
   const drawingSize = new THREE.Vector2();
   // Observers run after animation callbacks. Never resize/clear a WebGL buffer
@@ -200,6 +201,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     }
     atmosphere.update(rotationDim, palmLight.dimStrength);
     designStage.update(delta, stage.isSettled, reducedMotion.matches, stage.zoomRatio);
+    renderer.clear(); designStage.renderBackdrop(renderer); renderer.clearDepth();
     renderer.render(scene, camera);
   }
   frame = requestAnimationFrame(animate);

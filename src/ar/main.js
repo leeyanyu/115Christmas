@@ -9,9 +9,11 @@ const query = new URLSearchParams(location.search);
 const tree = findARTree(query.get('tree') ?? undefined);
 const launch = document.querySelector('#ar-launch'), support = document.querySelector('#ar-support');
 const previewStatus = document.querySelector('#preview-status');
-let preview, controller, launchFeedback, webXR, prepareTimer, checkingXR = false;
+let preview, controller, launchFeedback, webXR, prepareTimer, checkingXR = false, customAR;
 
-if (!tree) {
+if (query.get('tree') === 'diy') {
+  import('./custom.js').then(({ mountCustomAR }) => { customAR = mountCustomAR(); }).catch(error => { previewStatus.textContent = '作品暫時無法開啟，請重新整理重試。'; console.error(error); });
+} else if (!tree) {
   document.querySelector('#work-title').textContent = '找不到這棵聖誕樹';
   document.querySelector('#work-author').textContent = '';
   previewStatus.textContent = '作品連結可能有誤';
@@ -123,4 +125,4 @@ if (!tree) {
   window.addEventListener('pagehide', () => { controller?.abort(); preview?.dispose(); });
   window.addEventListener('pageshow', event => { if (event.persisted) loadPreview(); });
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { clearTimeout(prepareTimer); webXR?.dispose(); controller?.abort(); preview?.dispose(); launchFeedback?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { customAR?.dispose(); clearTimeout(prepareTimer); webXR?.dispose(); controller?.abort(); preview?.dispose(); launchFeedback?.dispose(); });

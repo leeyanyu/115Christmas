@@ -1,3 +1,4 @@
+import { designARURL } from './diy/design-link.js';
 import './diy/style.css';
 import { createDesignEditor } from './diy/editor.js';
 import { loadDesign, saveDesign } from './diy/design.js';
@@ -42,6 +43,9 @@ let { design: savedDesign, active: ownTree } = loadDesign(storage);
 const visit = document.querySelector('#diy-switch');
 function updateDesignUI() {
   document.querySelector('main').classList.toggle('own-tree', ownTree);
+  const arURL = ownTree && savedDesign ? designARURL(savedDesign, location.href) : './ar.html?tree=gj-2026';
+  document.querySelector('#ar-entry').href = arURL; document.querySelector('#ar-guide-entry').href = arURL;
+  document.querySelector('#ar-guide-entry').textContent = ownTree ? '我的聖誕樹 · AR 合照 ↗' : '格致聖誕樹 · AR 合照 ↗';
   visit.hidden = !savedDesign;
   visit.textContent = ownTree ? '切換到格致原版' : '切換到我的作品';
   document.querySelector('#diy-open').textContent = savedDesign ? '修改我的作品 ↗' : 'DIY 我的聖誕樹 ↗';
@@ -82,6 +86,7 @@ try {
     const stored = saveDesign(storage, design, true); updateDesignUI();
     status.textContent = stored ? `${design.title} · ${design.blessing || '你的作品已儲存，點遠方的樹可切回格致原版。'}` : '作品已套用；瀏覽器無法儲存，關閉分頁後不會保留。';
   } });
+  document.querySelector('#diy-entrance').addEventListener('click', openEditor);
   visit.addEventListener('click', visitTree); document.querySelector('#diy-open').addEventListener('click', openEditor);
   button.addEventListener('click', () => {
     handCamera?.stop();

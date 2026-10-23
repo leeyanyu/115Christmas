@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
-export const HANDOFF_DURATION = 4.2;
+export const HANDOFF_DURATION = 3.2;
 const ease = t => { t = THREE.MathUtils.clamp(t, 0, 1); return t * t * t * (t * (t * 6 - 15) + 10); };
 const wrapped = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
 
-// Retreat, enter, then return the old tree through an off-screen rear route.
-// The two full-size tree footprints never share the center of the stage.
+// Concurrent rotating entrance and exit, on opposite sides of the stage.
+// The departing tree returns through an off-screen rear route.
 export function createTreeHandoff(camera, far, outgoingAngle) {
   camera.updateMatrixWorld();
   const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0); right.y = 0; right.normalize();
@@ -27,13 +27,17 @@ export function createTreeHandoff(camera, far, outgoingAngle) {
   return {
     sample(time, reducedMotion = false) {
       const t = reducedMotion ? 1 : THREE.MathUtils.clamp(time / HANDOFF_DURATION, 0, 1);
-      // Incoming waits while the foreground tree clears the stage completely.
-      const enter = ease((t - .36) / .49);
-      incoming.copy(far).multiplyScalar(1 - enter);
-      if (t < .28) outgoing.copy(park).multiplyScalar(ease(t / .28));
-      else if (t < .40) outgoing.lerpVectors(park, leftRear, ease((t - .28) / .12));
-      else if (t < .65) outgoing.lerpVectors(leftRear, rightRear, ease((t - .40) / .25));
-      else if (t < .85) outgoing.lerpVectors(rightRear, rightGate, ease((t - .65) / .20));
+      const enter = ease(t);
+      // Harmonic depth interpolation gives an even change in apparent size.
+      const depth = 1 / THREE.MathUtils.lerp(1 / farDepth, 1 / frontDepth, enter);
+      incoming.copy(far).multiplyScalar((depth - frontDepth) / (farDepth - frontDepth));
+      if (t < .40) {
+        const leave = ease(t / .40);
+        const depth = 1 / THREE.MathUtils.lerp(1 / frontDepth, 1 / parkDepth, leave);
+        outgoing.copy(point(depth, -side * 1.65 * leave));
+      } else if (t < .52) outgoing.lerpVectors(park, leftRear, ease((t - .40) / .12));
+      else if (t < .70) outgoing.lerpVectors(leftRear, rightRear, ease((t - .52) / .18));
+      else if (t < .85) outgoing.lerpVectors(rightRear, rightGate, ease((t - .70) / .15));
       else outgoing.lerpVectors(rightGate, far, ease((t - .85) / .15));
       return { incoming, outgoing, enter, done: t === 1,
         incomingAngle: incomingAngle + wrapped(frontAngle - incomingAngle) * enter + (reducedMotion ? 0 : Math.PI * 2 * enter),
