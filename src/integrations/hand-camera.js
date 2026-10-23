@@ -1,4 +1,5 @@
 import { createHandGestures, readPalm } from './hand-gestures.js';
+import { isDesktopHandCamera } from './hand-camera-platform.js';
 
 const messages = {
   searching: '伸出一隻手，輕輕左右移動', lowered: '再舉起手，就能重新點亮',
@@ -9,6 +10,12 @@ const defaultDetector = async options => (await import('./hand-detector.js')).cr
 
 export function createHandCamera({ button, note, preview, capture, select, onInput, onLight,
   canInteract = () => true, createDetector = defaultDetector }) {
+  // Also guard initialization so mobile cannot request video or load a model
+  // if this integration is accidentally invoked outside the normal entry point.
+  if (!isDesktopHandCamera()) {
+    if (button) button.hidden = true;
+    return { stop() {}, dispose() {} };
+  }
   const gestures = createHandGestures();
   const ring = button.querySelector('[data-hand-progress]');
   let generation = 0, active = false, stream, detector, frame, pending, disposed = false, controller;

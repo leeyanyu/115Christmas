@@ -6,6 +6,14 @@ import { createInteractionGuide } from './integrations/interaction-guide.js';
 import { createChristmasMusic } from './integrations/christmas-music.js';
 import { christmasMusicMix } from './integrations/christmas-music-mix.js';
 import { createHandCamera } from './integrations/hand-camera.js';
+import { isDesktopHandCamera } from './integrations/hand-camera-platform.js';
+
+const handCameraEnabled = isDesktopHandCamera();
+if (handCameraEnabled) {
+  document.querySelectorAll('#hand-toggle, .hand-setup').forEach(element => { element.hidden = false; });
+} else {
+  document.querySelectorAll('#hand-toggle, #hand-note, #hand-capture, .hand-setup').forEach(element => element.remove());
+}
 
 const button = document.querySelector('#awaken');
 const label = document.querySelector('#button-label');
@@ -57,7 +65,7 @@ try {
     meter: document.querySelector('#voice-meter'), onEnergy: amount => world.addVoiceEnergy(amount), onLevel: value => world.setVoiceLevel(value),
     onListening: active => music.setListening(active) });
   guide = createInteractionGuide({ button: document.querySelector('#interaction-help'), dialog: document.querySelector('#interaction-guide'), onTheme: theme => world.setTheme(theme), onOpen: () => voice?.stop() });
-  handCamera = createHandCamera({ button: document.querySelector('#hand-toggle'), note: document.querySelector('#hand-note'),
+  if (handCameraEnabled) handCamera = createHandCamera({ button: document.querySelector('#hand-toggle'), note: document.querySelector('#hand-note'),
     preview: document.querySelector('#hand-preview'), capture: document.querySelector('#hand-capture'), select: document.querySelector('#hand-camera-select'),
     onInput: input => world.setHandInput(input), onLight: () => world.lightFromPalm(), canInteract: () => world.canUseHands() });
   button.disabled = true;

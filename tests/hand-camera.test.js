@@ -25,6 +25,20 @@ function setup() {
     frame(now) { const next = frames.entries().next().value; if (next) { frames.delete(next[0]); capture.currentTime += .1; next[1](now); } },
     restore() { for (const [key, descriptor] of Object.entries(saved)) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; } } };
 }
+test('mobile cannot request video or initialize recognition even when invoked directly', async () => {
+  const s = setup(); let effect;
+  try {
+    let requested = 0, loaded = 0;
+    navigator.userAgent = 'Mozilla/5.0 (Linux; Android 15; Pixel 9)';
+    navigator.mediaDevices.getUserMedia = async () => { requested++; return s.stream; };
+    effect = createHandCamera({ ...s, onInput() {}, onLight() {}, createDetector: async () => { loaded++; return {}; } });
+    s.button.dispatchEvent(new Event('click')); await flush();
+    assert.equal(s.button.hidden, true);
+    assert.equal(requested, 0); assert.equal(loaded, 0);
+    effect.stop(); effect.dispose();
+    assert.equal(s.stopped, 0);
+  } finally { effect?.dispose(); s.restore(); }
+});
 test('camera permission is opt-in; late permission, model initialization, and denied access are cleaned up', async () => {
   const s = setup(); let effect;
   try {
