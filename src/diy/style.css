@@ -58,8 +58,5 @@
 #interaction-guide .diy-guide-note { color: #a4b6b8; font-size: 11px; line-height: 1.8; }
 main.design-changing #reveal { opacity: 0; }
 
-#diy-entrance { position: fixed; z-index: 2; top: 124px; left: 6%; width: auto; min-height: 36px; margin: 0; padding: 6px 14px; border: 1px solid #d7c38f44; border-radius: 20px; background: transparent; color: #d8c69e; font: 11px/1.5 "Noto Serif TC", serif; letter-spacing: .08em; }
+#diy-entrance { width: auto; min-height: 38px; margin: 0; padding: 6px 12px; gap: 7px; border: 1px solid #d7c38f66; border-radius: 20px; background: transparent; color: #d8c69e; font: 11px/1.5 "Noto Serif TC", serif; letter-spacing: .08em; }
 #diy-entrance[hidden] { display: none; }
-main.is-fullscreen #diy-entrance { visibility: hidden; }
-@media(max-width:700px){#diy-entrance{top:92px; left:7%; font-size:10px; padding:5px 10px; min-height:32px;}}
-@media(max-height:520px){#diy-entrance{top:146px;}}

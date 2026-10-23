@@ -5,6 +5,7 @@ import { loadDesign, saveDesign } from './diy/design.js';
 import './style.css';
 import { createWorld } from './scene/world.js';
 import { createFullscreenControl } from './integrations/fullscreen.js';
+import { createStageTools } from './integrations/stage-tools.js';
 import { createVoiceLight } from './integrations/voice-light.js';
 import { createInteractionGuide } from './integrations/interaction-guide.js';
 import { createChristmasMusic } from './integrations/christmas-music.js';
@@ -32,6 +33,7 @@ const fullscreenControl = createFullscreenControl(
   document.querySelector('main'),
   message => { status.textContent = message; },
 );
+const stageTools = createStageTools(document.querySelector('#stage-tools'));
 let world;
 let voice;
 let guide;
@@ -116,4 +118,4 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { editor?.dispose(); handCamera?.dispose(); guide?.dispose(); music.dispose(); voice?.dispose(); fullscreenControl.dispose(); world?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { editor?.dispose(); handCamera?.dispose(); guide?.dispose(); music.dispose(); voice?.dispose(); stageTools.dispose(); fullscreenControl.dispose(); world?.dispose(); });

@@ -18,6 +18,8 @@ for (const aspect of [1440 / 960, 390 / 720, 320 / 850, 667 / 320]) for (const y
   const start = handoff.sample(0);
   assert.ok(start.incoming.distanceTo(far) < 1e-8); assert.equal(start.outgoing.length(), 0);
   let previousIncoming = start.incoming.clone(), previousOutgoing = start.outgoing.clone(), previousAngle = 0;
+  let previousScreen, firstSpeed, lastSpeed;
+  const cruisingSpeeds = [];
   for (let frame = 0; frame <= 210; frame++) {
     const state = handoff.sample(frame * HANDOFF_DURATION / 210);
     assert.ok(state.incoming.distanceTo(state.outgoing) >= 5.59, `tree footprints need clearance: ${aspect}, frame ${frame}`);
@@ -36,8 +38,22 @@ for (const aspect of [1440 / 960, 390 / 720, 320 / 850, 667 / 320]) for (const y
         assert.ok(Math.abs(edge.x) <= 1.02, `whole pedestals stay in the viewport: ${aspect}, frame ${frame}`);
       }
     }
+    const screen = [];
+    for (const position of [state.incoming, state.outgoing]) for (const y of [0, 4.4]) {
+      const point = position.clone().add(new THREE.Vector3(0, y, 0)).project(camera);
+      screen.push(point.x * aspect, point.y);
+    }
+    if (previousScreen) {
+      const speed = Math.hypot(...screen.map((value, index) => value - previousScreen[index]));
+      if (frame === 1) firstSpeed = speed;
+      if (frame === 210) lastSpeed = speed;
+      if (frame > 42 && frame < 168) cruisingSpeeds.push(speed);
+    }
+    previousScreen = screen;
     previousIncoming.copy(state.incoming); previousOutgoing.copy(state.outgoing); previousAngle = state.angle;
   }
+  assert.ok(Math.max(...cruisingSpeeds) / Math.min(...cruisingSpeeds) < 1.02, 'perspective changes must not cause mid-turn speed surges or stalls');
+  assert.ok(firstSpeed < Math.min(...cruisingSpeeds) * .05 && lastSpeed < Math.min(...cruisingSpeeds) * .05, 'accelerate and settle gently');
   const end = handoff.sample(HANDOFF_DURATION);
   assert.equal(end.incoming.length(), 0); assert.ok(end.outgoing.distanceTo(far) < 1e-8); assert.ok(end.done);
   const reduced = handoff.sample(.01, true);
