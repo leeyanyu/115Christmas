@@ -51,3 +51,10 @@ test('alternate links retry cleanly; disposal removes timers and listeners', () 
   s.links[0].dispatchEvent(new Event('click')); s.links[1].dispatchEvent(new Event('click'));
   assert.equal(s.timers.size, 0); assert.equal(s.note.textContent, previous);
 });
+
+test('a browser WebXR tap does not start the external-viewer failure timer', () => {
+  const link = new EventTarget(), note = {}, help = { hidden: true };
+  const feedback = createARLaunchFeedback({ links: [link], note, help, doc: new EventTarget(), win: new EventTarget(),
+    canAttempt: () => false, schedule() { assert.fail('WebXR is not an external-app handoff'); }, unschedule() {} });
+  link.dispatchEvent(new Event('click')); assert.equal(note.textContent, undefined); feedback.dispose();
+});

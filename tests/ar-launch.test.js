@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { arTrees, findARTree } from '../src/ar/catalog.js';
-import { arPlatform, arLaunchURL, arShareURL, androidViewerURL } from '../src/ar/launch.js';
+import { arPlatform, arLaunchURL, arShareURL, androidViewerURL, androidReferenceURL } from '../src/ar/launch.js';
 
 const page = 'https://leeyanyu.github.io/115Christmas/ar.html?tree=gj-2026';
 test('AR uses native placement on supported iOS and Android, with honest browser fallback', () => {
@@ -28,6 +28,10 @@ test('AR uses native placement on supported iOS and Android, with honest browser
   const fallback = new URL(decodeURIComponent(intent.match(/S.browser_fallback_url=([^;]+)/)[1]));
   assert.equal(fallback.searchParams.get('tree'), tree.id);
   assert.equal(fallback.searchParams.get('ar-fallback'), '1');
+  const reference = androidReferenceURL(tree, page, '/115Christmas/');
+  const referenceParams = new URLSearchParams(reference.split('?')[1].split('#Intent')[0]);
+  assert.equal(referenceParams.get('file'), 'https://modelviewer.dev/shared-assets/models/Astronaut.glb');
+  assert.match(decodeURIComponent(reference.match(/S.browser_fallback_url=([^;]+)/)[1]), /tree=gj-2026/);
 });
 
 test('each work has a stable share link; unknown ids never silently show another student work', () => {

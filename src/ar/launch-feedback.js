@@ -1,11 +1,12 @@
 // Browsers cannot inspect the external viewer's AR state. Report a handoff or
 // a return without claiming camera permission, plane detection or AR success.
 export function createARLaunchFeedback({ links, note, help, doc = document, win = window,
-  schedule = setTimeout, unschedule = clearTimeout }) {
+  schedule = setTimeout, unschedule = clearTimeout, canAttempt = () => true }) {
   let timer, attempted = false, left = false;
   function clear() { unschedule(timer); timer = undefined; }
   function showHelp(message) { note.textContent = message; help.hidden = false; help.open = true; }
-  function attempt() {
+  function attempt(event) {
+    if (!canAttempt(event)) return;
     clear(); attempted = true; left = false;
     note.textContent = '正在開啟系統檢視器…';
     timer = schedule(() => {

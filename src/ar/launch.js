@@ -32,3 +32,8 @@ export function arShareURL(tree, pageURL) {
   url.search = new URLSearchParams({ tree: tree.id }).toString(); url.hash = '';
   return url.href;
 }
+
+export function androidReferenceURL(tree, pageURL, baseURL) {
+  return arLaunchURL({ ...tree, title: 'AR 系統測試',
+    glb: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb' }, 'scene-viewer', pageURL, baseURL);
+}

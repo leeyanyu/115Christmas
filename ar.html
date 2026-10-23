@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#071323" />
-    <meta name="description" content="把格致聖誕樹放進後鏡頭畫面，和孩子留下聖誕合照。" />
-    <title>聖誕樹實景合照 · GJ Christmas</title>
+    <meta name="description" content="把格致聖誕樹放進身邊的真實空間，和孩子留下聖誕合照。" />
+    <title>把聖誕樹帶到身邊 · GJ Christmas</title>
   </head>
   <body>
     <header class="ar-header"><a href="./" aria-label="回到格致聖誕網站">GJ <span>CHRISTMAS</span></a><a class="back-link" href="./">回到冬夜 ↗</a></header>
@@ -23,12 +23,25 @@
       <section class="ar-actions" aria-label="放置聖誕樹與合照">
         <p class="work-credit"><span id="work-title">格致聖誕樹</span><span id="work-author">格致中學</span></p>
         <p id="work-blessing" class="blessing"></p>
-        <button id="ar-launch" class="ar-launch" type="button" hidden><img src="./ar-mark.svg" width="25" height="25" alt="" />開啟後鏡頭合照</button>
+        <!-- Quick Look requires an image as the link's child. The visible text
+             comes from the accessible label so this remains a native AR link. -->
+        <a id="ar-launch" class="ar-launch" aria-label="放在眼前的空間" hidden><img src="./ar-mark.svg" width="25" height="25" alt="" /></a>
         <p id="ar-support" class="support" role="status"></p>
+        <details id="android-ar-help" class="android-ar-help" hidden>
+          <summary>沒有成功進入 AR？</summary>
+          <p>請確認 Google 應用程式與 Google Play Services for AR 已啟用並更新。系統若先顯示 3D 預覽，請選擇「在你的空間中查看」或 AR 按鈕；出現相機畫面後，才是實景放置。</p>
+          <p id="xr-capability" role="status"></p>
+          <a id="ar-native-launch">使用系統 3D AR ↗</a>
+          <a id="ar-reference-launch">測試手機 AR（Google 示範模型）↗</a>
+          <p>若示範模型也無法開啟，需先確認手機的 AR 服務與啟動設定；若示範可用、聖誕樹不可用，請告訴我們。</p>
+          <a id="ar-browser-launch">改用系統檢視器連結 ↗</a>
+          <a href="https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox" target="_blank" rel="noopener noreferrer">查看 Google 應用程式 ↗</a>
+          <a href="https://play.google.com/store/apps/details?id=com.google.ar.core" target="_blank" rel="noopener noreferrer">查看 Google Play Services for AR ↗</a>
+        </details>
         <ol id="ar-steps" class="ar-steps" hidden>
-          <li>允許鏡頭，讓孩子站在畫面裡。</li>
-          <li>拖曳放置聖誕樹，雙指或滑桿調整大小。</li>
-          <li>按下拍照，把合照儲存或分享出去。</li>
+          <li>對準光線充足的地板或桌面，慢慢移動手機。</li>
+          <li>找到平面後放置聖誕樹，調整大小與方向。</li>
+          <li>讓孩子站在樹旁，使用系統拍攝功能或截圖保存合照。</li>
         </ol>
         <button id="share-tree" class="share-button" type="button">分享這棵聖誕樹 ↗</button>
         <p id="share-note" class="support" role="status" aria-live="polite"></p>
@@ -37,24 +50,14 @@
         <a id="default-tree" class="back-link" href="./ar.html?tree=gj-2026" hidden>看看格致聖誕樹 ↗</a>
       </section>
     </main>
-    <dialog id="photo-studio" class="photo-studio" aria-labelledby="photo-title">
-      <header class="photo-header"><h2 id="photo-title">聖誕合照</h2><button id="photo-close" type="button" aria-label="關閉合照並停止鏡頭">×</button></header>
-      <div id="photo-frame" class="photo-frame">
-        <video id="photo-video" autoplay muted playsinline aria-label="後鏡頭畫面"></video>
-        <canvas id="photo-tree" tabindex="0" aria-label="拖曳放置聖誕樹，雙指縮放" hidden></canvas>
-        <img id="photo-result" alt="你與聖誕樹的合照" hidden />
-        <p id="photo-hint" class="photo-hint" hidden>拖曳放置 · 雙指縮放</p>
-      </div>
-      <div class="photo-controls">
-        <div id="photo-live-actions" hidden>
-          <div class="photo-scale"><button id="photo-smaller" type="button" aria-label="縮小聖誕樹">−</button><input id="photo-scale" type="range" min="14" max="88" value="50" aria-label="聖誕樹大小" /><button id="photo-larger" type="button" aria-label="放大聖誕樹">＋</button></div>
-          <button id="photo-shoot" class="photo-shoot" type="button" aria-label="拍下聖誕合照" disabled><span></span></button>
-        </div>
-        <div id="photo-review-actions" class="photo-review-actions" hidden><button id="photo-retake" type="button">重拍</button><a id="photo-save" download>儲存照片</a><button id="photo-share" type="button" hidden>分享照片</button></div>
-        <button id="photo-retry" class="photo-retry" type="button" hidden>重新開啟鏡頭</button>
-        <p id="photo-status" class="photo-status" role="status" aria-live="polite"></p>
-      </div>
-    </dialog>
+    <canvas id="xr-canvas" class="xr-canvas" aria-hidden="true"></canvas>
+    <section id="xr-overlay" class="xr-overlay" aria-label="3D 空間 AR" hidden>
+      <div class="xr-surface"></div>
+      <header class="xr-hud"><span>GJ · 空間 AR</span><button id="xr-exit" type="button">離開</button></header>
+      <p id="xr-note" role="status">慢慢移動手機，尋找地面…</p>
+      <div class="xr-tools xr-hud"><label for="xr-scale">大小</label><input id="xr-scale" type="range" min="35" max="180" value="100" aria-label="聖誕樹大小" /><button id="xr-reposition" type="button">重新放置</button><button id="xr-clean" type="button">隱藏工具</button></div>
+      <button id="xr-show-tools" class="xr-show-tools" type="button" aria-label="顯示 AR 工具" hidden>✧</button>
+    </section>
     <footer>GJ CHRISTMAS 2026 · A LITTLE LIGHT, WHEREVER YOU ARE.</footer>
     <script type="module" src="/src/ar/main.js"></script>
   </body>
