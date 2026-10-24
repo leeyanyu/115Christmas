@@ -4,19 +4,23 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { disposeARTree } from './model.js';
 import { createXRSession } from './xr-session.js';
 import { readFloorHit, placeSpatialTree, spatialScale } from './xr-placement.js';
+import { createARLightControl } from './tree-lights.js';
 
 export function createWebXRTree({ overlay, canvas, url, onStatus, onError, onEnd, xr = navigator.xr }) {
   const get = id => overlay.querySelector(`#${id}`);
-  const note = get('xr-note'), scale = get('xr-scale');
+  const note = get('xr-note'), scale = get('xr-scale'), lights = get('xr-lights');
   const abort = new AbortController();
   let model, renderer, scene, environment, reticle, hitSource, placed = false, ready = false, disposed = false;
   let strength = 1, lastTouch, pinching = false, hadPinch = false, moved = false;
+  let lighting, previousFrame;
   const pointers = new Map(), hitMatrix = new THREE.Matrix4(), cameraPosition = new THREE.Vector3();
   function cleanup() {
     renderer?.setAnimationLoop(null); hitSource?.cancel(); hitSource = undefined;
+    lighting?.reset();
     if (reticle) { reticle.geometry.dispose(); reticle.material.dispose(); }
     if (model) { scene?.remove(model); disposeARTree(model); model.visible = false; }
     environment?.dispose(); environment = undefined;
+    lighting = undefined; previousFrame = undefined;
     renderer?.dispose(); renderer = undefined; scene = undefined; reticle = undefined;
     pointers.clear(); overlay.hidden = true;
     if (!disposed) onEnd();
@@ -41,6 +45,7 @@ export function createWebXRTree({ overlay, canvas, url, onStatus, onError, onEnd
         new THREE.MeshBasicMaterial({ color: 0xeacb94, transparent: true, opacity: .8 }));
       reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
       model.visible = false; model.scale.setScalar(1); scene.add(model);
+      lighting = createARLightControl(model); syncLightButton(); previousFrame = undefined;
       await renderer.xr.setSession(incoming); if (!current()) return;
       const viewer = await incoming.requestReferenceSpace('viewer'); if (!current()) return;
       const source = await incoming.requestHitTestSource({ space: viewer });
@@ -48,6 +53,8 @@ export function createWebXRTree({ overlay, canvas, url, onStatus, onError, onEnd
       hitSource = source;
       renderer.setAnimationLoop((time, frame) => {
         if (!frame || !renderer || !current()) return;
+        lighting.update(previousFrame === undefined ? 0 : (time - previousFrame) / 1000);
+        previousFrame = time;
         if (!placed) {
           const found = readFloorHit(frame, hitSource, renderer.xr.getReferenceSpace(), hitMatrix);
           if (reticle.visible !== found) note.textContent = found ? '圓環找到地面了，輕點畫面放置聖誕樹' : '慢慢移動手機，尋找地板或桌面…';
@@ -87,12 +94,20 @@ export function createWebXRTree({ overlay, canvas, url, onStatus, onError, onEnd
   const scaled = () => zoom(+scale.value / 100);
   const reposition = () => { placed = false; if (model) model.visible = false; note.textContent = '慢慢移動手機，找到圓環後輕點重新放置。'; };
   const exit = () => session.stop();
+  function syncLightButton() {
+    const on = lighting?.isOn ?? true;
+    lights.setAttribute('aria-pressed', String(on));
+    const label = on ? '關閉聖誕樹暖光' : '點亮聖誕樹暖光';
+    lights.setAttribute('aria-label', label); lights.title = label;
+  }
+  const toggleLights = () => { lighting?.toggle(); syncLightButton(); };
   const clean = () => { overlay.classList.add('xr-clean'); get('xr-show-tools').hidden = false; };
   const showTools = () => { overlay.classList.remove('xr-clean'); get('xr-show-tools').hidden = true; };
   overlay.addEventListener('pointerdown', down); overlay.addEventListener('pointermove', move);
   overlay.addEventListener('pointerup', up); overlay.addEventListener('pointercancel', up);
   overlay.addEventListener('beforexrselect', beforeSelect);
   get('xr-exit').addEventListener('click', exit); get('xr-reposition').addEventListener('click', reposition);
+  lights.addEventListener('click', toggleLights);
   get('xr-clean').addEventListener('click', clean); get('xr-show-tools').addEventListener('click', showTools);
   scale.addEventListener('input', scaled);
   return { get ready() { return ready; }, get active() { return session.active; },
@@ -113,6 +128,7 @@ export function createWebXRTree({ overlay, canvas, url, onStatus, onError, onEnd
       overlay.removeEventListener('pointerup', up); overlay.removeEventListener('pointercancel', up);
       overlay.removeEventListener('beforexrselect', beforeSelect);
       get('xr-exit').removeEventListener('click', exit); get('xr-reposition').removeEventListener('click', reposition);
+      lights.removeEventListener('click', toggleLights);
       get('xr-clean').removeEventListener('click', clean); get('xr-show-tools').removeEventListener('click', showTools);
       scale.removeEventListener('input', scaled);
     } };

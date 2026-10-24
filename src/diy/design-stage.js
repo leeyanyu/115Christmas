@@ -14,7 +14,7 @@ export function createDesignStage({ tree, theme, initial, ...options }) {
     apply(design, nextActive = true) {
       const outgoing = active ? saved : null;
       if (design) saved = design;
-      active = !!(saved && nextActive); style(); distant.swap(outgoing, false);
+      active = !!(saved && nextActive); style(); distant.swap(outgoing, false, active ? saved : null);
     },
     update(delta, ready, reduced, ratio) { layer.syncGrowth(); distant.update(delta, ready, reduced, ratio); },
     reset() { distant.reset(); backdrop(); },

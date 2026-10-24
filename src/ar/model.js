@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createDesignLayer } from '../diy/design-layer.js';
 import { createTree } from '../scene/tree.js';
+import { addARTreeLights } from './tree-lights.js';
 
 const designLayers = new WeakMap();
 
@@ -28,6 +29,7 @@ export function createARTree(heightMeters = 1.65, design = null) {
   const root = new THREE.Group();
   root.name = 'AR-tree'; root.add(tree.root);
   if (design) { const layer = createDesignLayer(tree); layer.apply(design); designLayers.set(root, layer); }
+  addARTreeLights(tree);
   const bounds = new THREE.Box3().setFromObject(root);
   const scale = heightMeters / bounds.getSize(new THREE.Vector3()).y;
   tree.root.scale.setScalar(scale);

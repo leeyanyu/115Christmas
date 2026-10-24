@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-export const HANDOFF_DURATION = 3.6;
+export const HANDOFF_DURATION = 4.2;
+export const HANDOFF_RADIUS = 4.8;
 // Short, smooth acceleration/deceleration with a steady middle section.
 const ease = t => {
   const ramp = .16;
@@ -27,7 +28,7 @@ const smoothstep = t => { t = THREE.MathUtils.clamp(t, 0, 1); return t * t * t *
 export function createTreeHandoff(camera, far) {
   camera.updateMatrixWorld();
   const center = far.clone().multiplyScalar(.5), longAxis = center.clone();
-  const shortAxis = new THREE.Vector3(-far.z, 0, far.x).normalize().multiplyScalar(2.8);
+  const shortAxis = new THREE.Vector3(-far.z, 0, far.x).normalize().multiplyScalar(HANDOFF_RADIUS);
   const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
   if (shortAxis.dot(cameraRight) < 0) shortAxis.negate();
   const view = camera.getWorldDirection(new THREE.Vector3()), forward = view.clone(); forward.y = 0; forward.normalize();
@@ -99,7 +100,7 @@ export function createTreeHandoff(camera, far) {
         + (-2 * u ** 3 + 3 * u ** 2) * high / steps + (u ** 3 - u ** 2) * span * slopes[high];
       const enter = t === 1 ? 1 : phase;
       at(enter);
-      return { incoming, outgoing, enter, angle: Math.PI * enter, done: t === 1 };
+      return { incoming, outgoing, enter, turn: ease(t), angle: Math.PI * enter, done: t === 1 };
     },
   };
 }

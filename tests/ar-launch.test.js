@@ -11,7 +11,7 @@ test('AR uses native placement on supported iOS and Android, with honest browser
   assert.equal(arPlatform({ userAgent: 'Linux; Android 15' }), 'scene-viewer');
   assert.equal(arPlatform({ userAgent: 'Windows NT 10.0', maxTouchPoints: 10 }), 'desktop');
   const tree = findARTree();
-  assert.equal(arLaunchURL(tree, 'quick-look', page, '/115Christmas/'), 'https://leeyanyu.github.io/115Christmas/ar/models/gj-2026.usdz');
+  assert.equal(arLaunchURL(tree, 'quick-look', page, '/115Christmas/'), 'https://leeyanyu.github.io/115Christmas/ar/models/gj-2026-lit-v1.usdz');
   assert.equal(arLaunchURL(tree, 'desktop', page, '/115Christmas/'), null);
   assert.equal(arLaunchURL(tree, 'ios-browser', page, '/115Christmas/'), null);
   const intent = arLaunchURL(tree, 'scene-viewer', page, '/115Christmas/');
@@ -24,7 +24,7 @@ test('AR uses native placement on supported iOS and Android, with honest browser
   assert.equal(alternate.searchParams.get('file'), params.get('file'));
   assert.equal(alternate.searchParams.get('mode'), 'ar_preferred');
   assert.equal(params.get('resizable'), 'true');
-  assert.equal(params.get('file'), 'https://leeyanyu.github.io/115Christmas/ar/models/gj-2026.glb');
+  assert.equal(params.get('file'), 'https://leeyanyu.github.io/115Christmas/ar/models/gj-2026-lit-v1.glb');
   const fallback = new URL(decodeURIComponent(intent.match(/S.browser_fallback_url=([^;]+)/)[1]));
   assert.equal(fallback.searchParams.get('tree'), tree.id);
   assert.equal(fallback.searchParams.get('ar-fallback'), '1');

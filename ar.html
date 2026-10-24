@@ -53,7 +53,7 @@
     <canvas id="xr-canvas" class="xr-canvas" aria-hidden="true"></canvas>
     <section id="xr-overlay" class="xr-overlay" aria-label="3D 空間 AR" hidden>
       <div class="xr-surface"></div>
-      <header class="xr-hud"><span>GJ · 空間 AR</span><button id="xr-exit" type="button">離開</button></header>
+      <header class="xr-hud"><span>GJ · 空間 AR</span><div class="xr-header-actions"><button id="xr-lights" type="button" aria-label="關閉聖誕樹暖光" title="關閉聖誕樹暖光" aria-pressed="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18v-2a6 6 0 1 1 6 0v2M9 18h6M10 21h4M12 1v2M3 5l2 2M21 5l-2 2M1 12h2M21 12h2"/></svg></button><button id="xr-exit" type="button">離開</button></div></header>
       <p id="xr-note" role="status">慢慢移動手機，尋找地面…</p>
       <div class="xr-tools xr-hud"><label for="xr-scale">大小</label><input id="xr-scale" type="range" min="35" max="180" value="100" aria-label="聖誕樹大小" /><button id="xr-reposition" type="button">重新放置</button><button id="xr-clean" type="button">隱藏工具</button></div>
       <button id="xr-show-tools" class="xr-show-tools" type="button" aria-label="顯示 AR 工具" hidden>✧</button>
