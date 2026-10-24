@@ -1,62 +1,70 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { createTreeHandoff, HANDOFF_DURATION, HANDOFF_RADIUS } from '../src/diy/tree-handoff.js';
+import { createTreeHandoff, HANDOFF_DURATION, DISTANT_DEPTH, DISTANT_SCALE } from '../src/diy/tree-handoff.js';
 
-// A turning stage naturally occludes its rear tree. Verify physical clearance,
-// continuous opposite arcs, and on-screen visibility rather than requiring the
-// rear tree to take an invisible detour to avoid all projected occlusion.
-for (const aspect of [1440 / 960, 390 / 720, 320 / 850, 667 / 320]) for (const yaw of [0, .7, 2.5]) {
-  const distance = Math.max(10, 1.95 / (Math.tan(37 * Math.PI / 360) * aspect * .85));
+// A grounded carousel must advance in depth and apparent size without a
+// mid-turn retreat/lift. Check each tree independently, rather than allowing
+// one tree's speed to mask the other tree stopping or reversing.
+for (const aspect of [1440 / 960, 390 / 844, 320 / 850, 667 / 320]) for (const yaw of [0, .7, 2.5]) {
+  const tangent = Math.tan(37 * Math.PI / 360);
+  const distance = Math.max(2.3 / (tangent * .68), 1.95 / (tangent * aspect * .85));
   const camera = new THREE.PerspectiveCamera(37, aspect, .1, 100);
-  camera.position.set(Math.sin(yaw) * distance, 3, Math.cos(yaw) * distance);
-  camera.lookAt(0, 2, 0); camera.updateMatrixWorld();
+  camera.position.set(Math.sin(yaw) * distance, 2.05 + distance * .1, Math.cos(yaw) * distance);
+  camera.lookAt(0, 2.05, 0); camera.updateMatrixWorld();
+  const view = camera.getWorldDirection(new THREE.Vector3());
   const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-  const depth = Math.min(distance * 4.4, 90);
+  const depth = distance * DISTANT_DEPTH;
   const far = new THREE.Vector3(camera.position.x, 0, camera.position.z).addScaledVector(forward, depth)
-    .addScaledVector(right, depth * Math.tan(37 * Math.PI / 360) * aspect * (aspect < 1 ? .56 : .64));
+    .addScaledVector(right, depth * tangent * aspect * (aspect < 1 ? .56 : .64));
   const handoff = createTreeHandoff(camera, far);
-  const start = handoff.sample(0);
-  assert.ok(start.incoming.distanceTo(far) < 1e-8); assert.equal(start.outgoing.length(), 0);
-  let previousIncoming = start.incoming.clone(), previousOutgoing = start.outgoing.clone(), previousAngle = 0;
-  let previousScreen, firstSpeed, lastSpeed;
-  const cruisingSpeeds = [];
-  for (let frame = 0; frame <= 210; frame++) {
-    const state = handoff.sample(frame * HANDOFF_DURATION / 210);
-    assert.ok(state.incoming.distanceTo(state.outgoing) >= HANDOFF_RADIUS * 2 - .01, `tree footprints need clearance: ${aspect}, frame ${frame}`);
-    assert.ok(state.angle >= previousAngle && state.angle <= Math.PI, 'both trees share a single forward half-turn');
-    assert.ok(state.incoming.distanceTo(previousIncoming) < far.length() * .05 && state.outgoing.distanceTo(previousOutgoing) < far.length() * .05, 'no off-screen jumps');
-    const separation = state.incoming.clone().sub(state.outgoing);
-    const longAxis = far.clone().normalize();
-    const along = separation.dot(longAxis) / far.length();
-    const across = separation.clone().addScaledVector(longAxis, -separation.dot(longAxis)).length() / (HANDOFF_RADIUS * 2);
-    assert.ok(Math.abs(along * along + across * across - 1) < 1e-8, 'the trees stay opposite on the same ellipse');
-    for (const position of [state.incoming, state.outgoing]) {
-      const viewDepth = position.clone().sub(camera.position).dot(camera.getWorldDirection(new THREE.Vector3()));
-      assert.ok(viewDepth > 1 && viewDepth < camera.far - 1, 'neither tree is sent behind the camera or its far clip');
-      for (let i = 0; i < 20; i++) {
-        const edge = new THREE.Vector3(Math.cos(i * Math.PI / 10) * 1.85, 0, Math.sin(i * Math.PI / 10) * 1.85).add(position).project(camera);
-        assert.ok(Math.abs(edge.x) <= 1.02, `whole pedestals stay in the viewport: ${aspect}, frame ${frame}`);
+  const previous = [null, null];
+  const endpoints = [far.clone().project(camera).y, new THREE.Vector3().project(camera).y];
+  for (let frame = 0; frame <= 240; frame++) {
+    const state = handoff.sample(frame * HANDOFF_DURATION / 240);
+    assert.ok(state.incoming.distanceTo(state.outgoing) > 1.85 * (state.incomingScale + state.outgoingScale) + .08, 'scaled pedestals never collide');
+    let index = 0;
+    for (const [position, scale] of [[state.incoming, state.incomingScale], [state.outgoing, state.outgoingScale]]) {
+      assert.equal(position.y, 0, 'neither root leaves the shared ground');
+      const base = position.clone().project(camera);
+      const top = position.clone().add(new THREE.Vector3(0, 4.4 * scale, 0)).project(camera);
+      const height = top.y - base.y;
+      const viewDepth = position.clone().sub(camera.position).dot(view);
+      assert.ok(viewDepth > 1 && viewDepth < camera.far - 1);
+      assert.ok(base.y >= Math.min(...endpoints) - 1e-8 && base.y <= Math.max(...endpoints) + 1e-8, 'base never overshoots above/below its two destinations');
+      if (previous[index]) {
+        const old = previous[index];
+        if (index === 0) {
+          assert.ok(base.y <= old.y + 1e-8 && viewDepth <= old.depth + 1e-8, 'incoming tree never retreats or rises back up');
+          assert.ok(height >= old.height - 1e-8, 'incoming tree never shrinks back midway');
+        } else {
+          assert.ok(base.y >= old.y - 1e-8 && viewDepth >= old.depth - 1e-8, 'departing tree never darts towards the lens');
+          assert.ok(height <= old.height + 1e-8, 'departing tree never grows back midway');
+        }
+        if (frame > 24 && frame < 216) assert.ok(Math.hypot(base.x - old.x, base.y - old.y, height - old.height) > 1e-5, 'neither tree stalls in mid-turn');
+      }
+      previous[index++] = { x: base.x, y: base.y, height, depth: viewDepth };
+      for (let i = 0; i < 24; i++) {
+        const edge = new THREE.Vector3(Math.cos(i * Math.PI / 12) * 1.85 * scale, 0, Math.sin(i * Math.PI / 12) * 1.85 * scale).add(position).project(camera);
+        assert.ok(Math.abs(edge.x) <= 1.02, `whole pedestals stay in view: ${aspect}, frame ${frame}`);
       }
     }
-    const screen = [];
-    for (const position of [state.incoming, state.outgoing]) for (const y of [0, 4.4]) {
-      const point = position.clone().add(new THREE.Vector3(0, y, 0)).project(camera);
-      screen.push(point.x * aspect, point.y);
-    }
-    if (previousScreen) {
-      const speed = Math.hypot(...screen.map((value, index) => value - previousScreen[index]));
-      if (frame === 1) firstSpeed = speed;
-      if (frame === 210) lastSpeed = speed;
-      if (frame > 42 && frame < 168) cruisingSpeeds.push(speed);
-    }
-    previousScreen = screen;
-    previousIncoming.copy(state.incoming); previousOutgoing.copy(state.outgoing); previousAngle = state.angle;
   }
-  assert.ok(Math.max(...cruisingSpeeds) / Math.min(...cruisingSpeeds) < 1.02, 'perspective changes must not cause mid-turn speed surges or stalls');
-  assert.ok(firstSpeed < Math.min(...cruisingSpeeds) * .05 && lastSpeed < Math.min(...cruisingSpeeds) * .05, 'accelerate and settle gently');
-  const end = handoff.sample(HANDOFF_DURATION);
-  assert.equal(end.incoming.length(), 0); assert.ok(end.outgoing.distanceTo(far) < 1e-8); assert.ok(end.done);
-  const reduced = handoff.sample(.01, true);
-  assert.ok(reduced.done); assert.equal(reduced.incoming.length(), 0); assert.ok(reduced.outgoing.distanceTo(far) < 1e-8);
+  for (const fraction of [.15, .3, .5, .7, .85]) {
+    const epsilon = .0001, time = fraction * HANDOFF_DURATION;
+    const sample = t => { const state = handoff.sample(t); return [state.incoming.clone(), state.outgoing.clone()]; };
+    const left = sample(time - epsilon), middle = sample(time), right = sample(time + epsilon);
+    for (let i = 0; i < 2; i++) {
+      const before = middle[i].clone().sub(left[i]).divideScalar(epsilon);
+      const after = right[i].clone().sub(middle[i]).divideScalar(epsilon);
+      assert.ok(before.distanceTo(after) < .03, 'path velocity joins smoothly through turns and easing boundaries');
+    }
+  }
+  const start = handoff.sample(0);
+  assert.ok(start.incoming.distanceTo(far) < 1e-8); assert.equal(start.outgoing.length(), 0);
+  assert.equal(start.incomingScale, DISTANT_SCALE); assert.equal(start.outgoingScale, 1);
+  for (const state of [handoff.sample(HANDOFF_DURATION), handoff.sample(.01, true)]) {
+    assert.equal(state.incoming.length(), 0); assert.ok(state.outgoing.distanceTo(far) < 1e-8); assert.ok(state.done);
+    assert.equal(state.incomingScale, 1); assert.equal(state.outgoingScale, DISTANT_SCALE);
+  }
 }
-console.log('Opposite stage arcs keep full tree clearance, stay in view, finish exactly, and respect reduced motion.');
+console.log('Grounded swaps have monotone floor anchors, depth and apparent size; no lift, reversal, stall, collision or velocity corner.');

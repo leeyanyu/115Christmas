@@ -32,8 +32,9 @@ export function createForestBackdrop(scene) {
   }
   template.dispose(); scene.add(root);
   return {
-    place(position, right) {
-      root.position.copy(position).addScaledVector(right, 1.2);
+    place(position, right, scale = 1) {
+      root.scale.set(.72 * scale, .78 * scale, scale);
+      root.position.copy(position).addScaledVector(right, 1.2 * scale);
       root.rotation.y = Math.atan2(-right.z, right.x);
     },
     setVisible(visible) { root.visible = visible; },

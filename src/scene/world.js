@@ -171,6 +171,17 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     const delta = Math.min((now - previous) / 1000, .25);
     previous = now;
     if (document.hidden || editorDialog?.open) return;
+    if (designStage.isMoving) {
+      // A stage handoff only animates its two batched models. Pause the full
+      // invitation's simulation and timeline until the live tree is restored.
+      syncRendererSize();
+      designStage.update(delta, stage.isSettled, reducedMotion.matches, stage.zoomRatio);
+      atmosphere.update(0, 0); onRotation(delta, false);
+      if (!designStage.isMoving) { rotationGlow.reset(); greeting.update(); }
+      renderer.clear(); designStage.renderBackdrop(renderer); renderer.clearDepth();
+      renderer.render(scene, camera);
+      return;
+    }
     time += delta;
     const ready = stage.isSettled && !designStage.isMoving;
     const handReady = ready && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open;
@@ -207,7 +218,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
   frame = requestAnimationFrame(animate);
   return {
     get isChangingDesign() { return designStage.isMoving; },
-    applyDesign: (design, active) => { palmLight.reset(); campfire.reset(); visitors.reset(); gifts.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); designStage.apply(design, active); },
+    applyDesign: (design, active) => { palmLight.reset(); visitorGreeting.reset(); zoomOrbit.reset(); campfire.reset(); visitors.reset(); gifts.reset(); celebration.reset(); rotationGlow.reset(); interaction.reset(); gratitude.reset(); designStage.apply(design, active); },
     canUseHands: () => stage.isSettled && !designStage.isMoving && !editorDialog?.open && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open,
     setHandInput: input => palmLight.input(input, stage.isSettled && !designStage.isMoving && !editorDialog?.open && !manualControl && !celebration.isActive && !campfire.isActive && !guideDialog?.open),
     lightFromPalm: () => { if (!stage.isSettled) return false; palmLight.start(); interaction.starlight(2); return true; },

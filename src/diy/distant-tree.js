@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createDisplayTree } from './design-layer.js';
-import { createTreeHandoff } from './tree-handoff.js';
+import { createTreeHandoff, DISTANT_DEPTH, DISTANT_SCALE } from './tree-handoff.js';
 import { createDepthStage } from './depth-stage.js';
 import { createForestBackdrop } from './forest-backdrop.js';
 
@@ -15,10 +15,13 @@ function dispose(root) {
 // animated invitation's actors, particles and hundreds of separate meshes.
 export function createDistantModel(design, bare) {
   const { tree, layer } = createDisplayTree(design, { bare });
+  // Match the settled invitation's lamp size and star emission. Switching
+  // between the live model and its proxy must not flash darker or brighter.
+  if (!bare) { tree.starMaterial.emissiveIntensity = 2; tree.bulbs.forEach(bulb => bulb.scale.setScalar(1.15)); }
   tree.root.updateMatrixWorld(true);
   const batches = new Map(), output = new THREE.Group(); output.name = 'diy-distant-tree';
   tree.root.traverseVisible(o => {
-    if (o.isLine) { const line = new THREE.Line(o.geometry.clone(), o.material.clone()); line.material.opacity = .2; line.applyMatrix4(o.matrixWorld); output.add(line); return; }
+    if (o.isLine) { const line = new THREE.Line(o.geometry.clone(), o.material.clone()); line.applyMatrix4(o.matrixWorld); output.add(line); return; }
     if (!o.isMesh) return;
     const m = o.material;
     if (m.map) {
@@ -46,10 +49,11 @@ export function createDistantModel(design, bare) {
 export function createDistantTree({ scene, tree, camera, controls, canvas, onActivate, onTransition = () => {}, foregroundTargets = () => [], entrance }) {
   const backdrop = new THREE.Scene(), backdropCamera = camera.clone();
   scene.children.filter(o => o.isLight).forEach(light => backdrop.add(light.clone()));
-  let root, incomingRoot, liveVisibility, moving = false, elapsed = 0, handoff, anchored = false, viewport = '', referenceDistance = 10, damping = controls.enableDamping;
+  let root, incomingRoot, liveVisibility, liveParent, moving = false, firstFrame = false, elapsed = 0, handoff, anchored = false, viewport = '', referenceDistance = 10, damping = controls.enableDamping;
   const far = new THREE.Vector3(), source = new THREE.Vector3(), forward = new THREE.Vector3(), right = new THREE.Vector3();
   const baseDirection = new THREE.Vector3(), backdropTarget = new THREE.Vector3(), mapping = new THREE.Matrix4();
-  const sourceQuaternion = new THREE.Quaternion(), frontQuaternion = new THREE.Quaternion(), departingQuaternion = new THREE.Quaternion(), spin = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0);
+  const sourceQuaternion = new THREE.Quaternion(), frontQuaternion = new THREE.Quaternion(), departingQuaternion = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0);
+  const rearPose = new THREE.Object3D(); rearPose.scale.setScalar(DISTANT_SCALE);
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), mist = new THREE.Color(0x233d4a);
   const ground = createDepthStage(scene, backdrop);
   const forest = createForestBackdrop(backdrop);
@@ -58,6 +62,7 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
   function restoreLiveTree() {
     if (!incomingRoot) return;
     incomingRoot.removeFromParent(); dispose(incomingRoot); incomingRoot = undefined;
+    liveParent?.add(tree.root); liveParent = undefined;
     tree.root.visible = liveVisibility;
   }
   function appearance(design, bare) {
@@ -71,16 +76,16 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
     backdropCamera.lookAt(backdropTarget); backdropCamera.updateMatrixWorld();
     forward.copy(backdropTarget).sub(backdropCamera.position); forward.y = 0; forward.normalize();
     right.setFromMatrixColumn(backdropCamera.matrixWorld, 0); right.y = 0; right.normalize();
-    const depth = Math.min(referenceDistance * 4.4, backdropCamera.far - 10);
+    const depth = Math.min(referenceDistance * DISTANT_DEPTH, backdropCamera.far - 10);
     const side = depth * Math.tan(THREE.MathUtils.degToRad(backdropCamera.fov / 2)) * backdropCamera.aspect * (innerWidth <= 700 ? .56 : .64);
     far.set(backdropCamera.position.x, 0, backdropCamera.position.z).addScaledVector(forward, depth).addScaledVector(right, side);
-    forest.place(far, right);
+    rearPose.position.copy(far); forest.place(far, right, DISTANT_SCALE);
     anchored = true;
   }
   function finish() {
-    moving = false; tree.root.position.set(0, 0, 0); tree.root.quaternion.copy(frontQuaternion);
+    moving = false; tree.root.position.set(0, 0, 0); tree.root.quaternion.copy(frontQuaternion); tree.root.scale.setScalar(1);
     restoreLiveTree();
-    backdrop.add(root); root.position.copy(far); root.quaternion.identity(); releaseControls(); onTransition(false);
+    backdrop.add(root); root.position.copy(far); root.quaternion.identity(); root.scale.setScalar(DISTANT_SCALE); releaseControls(); onTransition(false);
   }
   function start(event) { if (event.isPrimary === false) { down = null; return; } if (event.button === 0) down = { id: event.pointerId, x: event.clientX, y: event.clientY }; }
   function move(event) { if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 7) down = null; }
@@ -113,13 +118,15 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
       departingQuaternion.copy(tree.root.quaternion);
       frontQuaternion.setFromAxisAngle(axis, Math.atan2(camera.position.x, camera.position.z));
       handoff = createTreeHandoff(camera, source);
-      appearance(design, bare); scene.add(root); elapsed = 0; moving = true;
-      tree.root.position.copy(source); tree.root.quaternion.copy(sourceQuaternion);
+      appearance(design, bare); scene.add(root); elapsed = 0; moving = true; firstFrame = true;
+      root.quaternion.copy(departingQuaternion);
+      tree.root.position.copy(source); tree.root.quaternion.copy(sourceQuaternion); tree.root.scale.setScalar(DISTANT_SCALE);
       // During the turn both trees need only a few batched draws. Restore the
       // full interactive tree at the exact final pose, then release the proxy.
       incomingRoot = createDistantModel(incomingDesign, false); incomingRoot.name = 'diy-handoff-incoming';
-      incomingRoot.position.copy(source); incomingRoot.quaternion.copy(sourceQuaternion); scene.add(incomingRoot);
-      liveVisibility = tree.root.visible; tree.root.visible = false;
+      incomingRoot.position.copy(source); incomingRoot.quaternion.copy(sourceQuaternion); incomingRoot.scale.setScalar(DISTANT_SCALE); scene.add(incomingRoot);
+      liveVisibility = tree.root.visible; liveParent = tree.root.parent;
+      tree.root.visible = false; tree.root.removeFromParent();
       if (entrance) entrance.hidden = true; onTransition(true);
     },
     reset() { restoreLiveTree(); moving = false; anchored = false; tree.root.position.set(0, 0, 0); tree.root.scale.setScalar(1); if (root) backdrop.add(root); releaseControls(); onTransition(false); },
@@ -127,28 +134,30 @@ export function createDistantTree({ scene, tree, camera, controls, canvas, onAct
       if (!root) return;
       root.visible = ready; enabled = false; if (entrance) entrance.hidden = !ready || moving;
       forest.setVisible(ready);
-      if (!ready) { ground.update(false, tree.root.position, far, false); return; }
+      if (!ready) { ground.update(false, tree.root, rearPose, false); return; }
       const nextViewport = `${innerWidth}:${innerHeight}`;
       if (moving && nextViewport !== viewport) finish();
       if (!anchored || nextViewport !== viewport) { referenceDistance = camera.position.distanceTo(controls.target) * zoomRatio; anchor(); viewport = nextViewport; }
       let retreat = 1;
       if (moving) {
-        elapsed += delta; const state = handoff.sample(elapsed, reducedMotion);
+        if (firstFrame) firstFrame = false;
+        else elapsed += Math.min(delta, .05);
+        const state = handoff.sample(elapsed, reducedMotion);
         tree.root.position.copy(state.incoming);
-        tree.root.quaternion.slerpQuaternions(sourceQuaternion, frontQuaternion, state.turn).multiply(spin.setFromAxisAngle(axis, reducedMotion ? 0 : Math.PI * 2 * state.turn));
-        incomingRoot.position.copy(tree.root.position); incomingRoot.quaternion.copy(tree.root.quaternion);
+        tree.root.quaternion.slerpQuaternions(sourceQuaternion, frontQuaternion, state.enter);
+        tree.root.scale.setScalar(state.incomingScale);
+        incomingRoot.position.copy(tree.root.position); incomingRoot.quaternion.copy(tree.root.quaternion); incomingRoot.scale.copy(tree.root.scale);
         root.position.copy(state.outgoing);
-        const t = state.turn;
-        root.quaternion.slerpQuaternions(departingQuaternion, sourceQuaternion, t).multiply(spin.setFromAxisAngle(axis, reducedMotion ? 0 : Math.PI * 2 * t));
+        root.quaternion.slerpQuaternions(departingQuaternion, sourceQuaternion, state.enter);
+        root.scale.setScalar(state.outgoingScale);
         retreat = THREE.MathUtils.smoothstep(elapsed, 0, 1.2);
         if (state.done) finish();
-      } else { root.position.copy(far); root.quaternion.identity(); }
-      root.scale.setScalar(1); tree.root.scale.setScalar(1);
+      } else { root.position.copy(far); root.quaternion.identity(); root.scale.setScalar(DISTANT_SCALE); tree.root.scale.setScalar(1); }
       root.traverse(o => { if (o.material?.userData.baseColor) {
         o.material.color.copy(o.material.userData.baseColor).lerp(mist, .38 * retreat).multiplyScalar(1 - .08 * retreat);
         if (o.material.emissive) o.material.emissiveIntensity = o.material.userData.baseEmissiveIntensity * (1 - .94 * retreat);
       } });
-      enabled = !moving; ground.update(true, tree.root.position, far, !moving, moving ? root.position : null);
+      enabled = !moving; ground.update(true, tree.root, rearPose, !moving, moving ? root : null);
     },
     dispose() { canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('pointermove', move); restoreLiveTree(); ground.dispose(); forest.dispose(); if (moving) releaseControls(); if (root) { root.removeFromParent(); dispose(root); } backdrop.clear(); if (entrance) entrance.hidden = true; onTransition(false); },
   };
