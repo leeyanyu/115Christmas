@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createDisplayTree } from './design-layer.js';
 import { MAX_ORNAMENTS, MAX_PAINT_DABS, PAINT_RADIUS } from './design.js';
+import { markTreeOnlyThumbnail, withoutPedestal } from '../forest/thumbnail.js';
 
 export function createEditorScene(canvas, { design, onChange, onSelect, onNotice }) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
@@ -109,8 +110,11 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
       direction.y = THREE.MathUtils.clamp(direction.y, -.05, .35); direction.normalize();
       captureCamera.aspect = 420 / 540; captureCamera.position.copy(target).addScaledVector(direction, 8.8); captureCamera.lookAt(target); captureCamera.updateProjectionMatrix();
       try {
-        layer.select(undefined); renderer.setPixelRatio(1); renderer.setSize(420, 540, false); renderer.render(scene, captureCamera);
-        return canvas.toDataURL('image/webp', .82);
+        layer.select(undefined); renderer.setPixelRatio(1); renderer.setSize(420, 540, false);
+        return withoutPedestal(tree, () => {
+          renderer.render(scene, captureCamera);
+          return markTreeOnlyThumbnail(canvas.toDataURL('image/webp', .82));
+        });
       } finally { layer.select(selected); renderer.setPixelRatio(oldRatio); renderer.setSize(oldSize.x, oldSize.y, false); renderer.render(scene, camera); }
     },
     showEngraving() { controls.target.set(0, .2, -.9); camera.position.set(0, 1.8, -3.2); controls.update(); render(); },
