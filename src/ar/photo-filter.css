@@ -1,0 +1,30 @@
+.christmas-photo-brand { text-align: center; color: #fff5db; pointer-events: none; text-shadow: 0 2px 14px #001019d9,0 1px 3px #001019; }
+.christmas-photo-brand strong { display: block; font: 400 clamp(24px,min(8.6vw,9.5vh),56px)/1.2 Georgia,"Times New Roman",serif; white-space: nowrap; }
+.christmas-photo-brand > span { display: block; margin-top: .65em; color: #ead3a0; font: 500 clamp(14px,min(3.4vw,3.5vh),20px)/1.2 Arial,sans-serif; letter-spacing: .16em; }
+.xr-photo-brand { position: absolute; left: 5%; right: 5%; bottom: calc(132px + env(safe-area-inset-bottom)); z-index: 1; }
+.xr-clean .xr-photo-brand { bottom: calc(32px + env(safe-area-inset-bottom)); }
+.photo-filter-entry { margin: 20px 0 9px; max-width: 360px; }
+.photo-filter-entry > button { min-height: 46px; padding: 11px 16px; border: 1px solid #d7c38f70; border-radius: 6px; background: #d7c38f0c; color: #ead3a0; font-size: 14px; letter-spacing: .05em; }
+.photo-filter-entry > p { margin: 10px 0; font-size: 14px; line-height: 1.7; color: #b4bdc5; }
+body.photo-filter-open { overflow: hidden; }
+#ar-photo-filter { width: min(940px,calc(100vw - 28px)); max-width: none; max-height: calc(100dvh - 28px); padding: 0; border: 1px solid #c9b88c66; border-radius: 16px; color: #f4e9d9; background: #0c1e2a; box-shadow: 0 24px 100px #0007; }
+#ar-photo-filter::backdrop { background: #03101cd9; backdrop-filter: blur(7px); }
+.photo-filter-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px; border-bottom: 1px solid #eacb9420; background: #0c1e2af5; }
+.photo-filter-header h2 { margin: 0; font-size: 21px; font-weight: 400; letter-spacing: .1em; }
+#ar-photo-filter button,#ar-photo-filter a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 10px 15px; border: 1px solid #eacb9450; border-radius: 6px; color: #ead3a0; background: transparent; font: inherit; font-size: 14px; cursor: pointer; }
+#ar-photo-filter button:disabled { opacity: .5; cursor: progress; }
+#ar-photo-filter [data-photo-close] { width: 44px; padding: 0; border: 0; font-size: 28px; }
+.photo-filter-content { padding: 18px 24px; }
+.photo-filter-intro,.photo-filter-status { margin: 0 0 16px; font-size: 14px; line-height: 1.7; color: #b4c1c5; }
+.photo-filter-preview { display: grid; place-items: center; min-height: 200px; overflow: hidden; border: 1px solid #eacb9420; border-radius: 10px; background: radial-gradient(ellipse at 50% 65%,#2d514b66,transparent 75%),#071923; }
+.photo-filter-preview canvas { width: auto; height: auto; max-width: 100%; max-height: 58dvh; margin: auto; touch-action: pan-y; cursor: default; }
+[data-photo-placeholder] { width: 100%; padding: 55px 12px 30px; }
+[data-photo-placeholder] > p { margin: 35px 0 0; text-align: center; color: #96acae; font-size: 14px; }
+.photo-filter-actions,.photo-filter-actions > div { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.photo-filter-actions { margin: 18px 0 14px; justify-content: space-between; }
+.photo-filter-actions label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #cfc2a8; }
+.photo-filter-actions select { min-height: 44px; padding: 8px 32px 8px 10px; border: 1px solid #eacb9450; border-radius: 6px; color: #ead3a0; background: #0c1e2a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23ead3a0' stroke-width='1.4'%3E%3Cpath d='m1 1 5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center; appearance: none; font: inherit; font-size: 16px; }
+#ar-photo-filter [data-photo-download] { color: #10212b; background: #d8c18e; }
+.photo-filter-status { margin: 0; min-height: 24px; }
+@media(max-width:700px) { .photo-filter-header { padding: 10px 14px; } .photo-filter-content { padding: 14px; } .photo-filter-preview canvas { max-height: 52dvh; } .photo-filter-actions { align-items: stretch; } .photo-filter-actions > div { width: 100%; } #ar-photo-filter { width: calc(100vw - 18px); max-height: calc(100dvh - 18px); border-radius: 12px; } }
+@media(max-height:520px) { .xr-photo-brand { bottom: calc(102px + env(safe-area-inset-bottom)); } .xr-clean .xr-photo-brand { bottom: calc(22px + env(safe-area-inset-bottom)); } .photo-filter-preview canvas { max-height: 48dvh; } }

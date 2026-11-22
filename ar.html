@@ -41,9 +41,10 @@
         <ol id="ar-steps" class="ar-steps" hidden>
           <li>對準光線充足的地板或桌面，慢慢移動手機。</li>
           <li>找到平面後放置聖誕樹，調整大小與方向。</li>
-          <li>讓孩子站在樹旁，使用系統拍攝功能或截圖保存合照。</li>
+          <li>讓孩子站在樹旁，隱藏工具後截圖保存合照；若畫面沒有活動字樣，可回到這頁加字。</li>
         </ol>
-        <button id="share-tree" class="share-button" type="button">分享這棵聖誕樹 ↗</button>
+        <div class="photo-filter-entry"><button id="photo-filter-open" type="button" aria-haspopup="dialog">合照加上活動字樣</button><p>讓照片帶著 Light up Christmas · Ger-Jyh，一起分享冬夜的心意。</p></div>
+        <button id="share-tree" class="share-button" type="button">分享 AR 連結</button>
         <p id="share-note" class="support" role="status" aria-live="polite"></p>
         <label id="share-link-label" class="support" for="share-link" hidden>複製連結，在手機開啟</label>
         <input id="share-link" class="share-link" type="url" readonly hidden aria-label="這棵聖誕樹的合照連結" />
@@ -55,9 +56,19 @@
       <div class="xr-surface"></div>
       <header class="xr-hud"><span>GJ · 空間 AR</span><div class="xr-header-actions"><button id="xr-lights" type="button" aria-label="關閉聖誕樹暖光" title="關閉聖誕樹暖光" aria-pressed="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18v-2a6 6 0 1 1 6 0v2M9 18h6M10 21h4M12 1v2M3 5l2 2M21 5l-2 2M1 12h2M21 12h2"/></svg></button><button id="xr-exit" type="button">離開</button></div></header>
       <p id="xr-note" role="status">慢慢移動手機，尋找地面…</p>
+      <div class="christmas-photo-brand xr-photo-brand" aria-label="Light up Christmas · Ger-Jyh"><strong>Light up Christmas</strong><span>Ger-Jyh</span></div>
       <div class="xr-tools xr-hud"><label for="xr-scale">大小</label><input id="xr-scale" type="range" min="35" max="180" value="100" aria-label="聖誕樹大小" /><button id="xr-reposition" type="button">重新放置</button><button id="xr-clean" type="button">隱藏工具</button></div>
       <button id="xr-show-tools" class="xr-show-tools" type="button" aria-label="顯示 AR 工具" hidden>✧</button>
     </section>
+    <dialog id="ar-photo-filter" aria-labelledby="photo-filter-title">
+      <header class="photo-filter-header"><h2 id="photo-filter-title">格致聖誕合照</h2><button type="button" data-photo-close aria-label="關閉合照加字">×</button></header>
+      <div class="photo-filter-content"><p class="photo-filter-intro">選取 AR 合照或截圖，把活動字樣一起存進照片。</p>
+        <div class="photo-filter-preview"><div data-photo-placeholder><div class="christmas-photo-brand"><strong>Light up Christmas</strong><span>Ger-Jyh</span></div><p>先選一張你們的聖誕合照</p></div><canvas hidden role="img" aria-label="已套用活動字樣的合照預覽"></canvas></div>
+        <input type="file" data-photo-file accept="image/jpeg,image/png,image/webp" hidden aria-label="選擇 AR 合照或截圖" />
+        <div class="photo-filter-actions"><button type="button" data-photo-choose>選擇合照或截圖</button><div data-photo-controls hidden><label>字樣位置<select aria-label="活動字樣位置"><option value="bottom">照片下方</option><option value="top">照片上方</option></select></label><a data-photo-download download="Ger-Jyh-Light-up-Christmas.jpg" hidden>下載合照</a><button type="button" data-photo-share hidden>分享照片</button></div></div>
+        <p data-photo-status class="photo-filter-status" role="status" aria-live="polite">照片只在這台裝置處理。</p>
+      </div>
+    </dialog>
     <footer>GJ CHRISTMAS 2026 · A LITTLE LIGHT, WHEREVER YOU ARE.</footer>
     <script type="module" src="/src/ar/main.js"></script>
   </body>
