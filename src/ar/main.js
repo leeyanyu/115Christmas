@@ -1,9 +1,13 @@
 import './style.css';
+import './photo-filter.css';
 import { findARTree } from './catalog.js';
 import { arPlatform, arLaunchURL, arShareURL, androidViewerURL, androidReferenceURL } from './launch.js';
 import { createARLaunchFeedback } from './launch-feedback.js';
 import { createARPreview } from './preview.js';
 import { createWebXRTree } from './webxr-tree.js';
+import { createPhotoFilter } from './photo-filter.js';
+
+const photoFilter = createPhotoFilter({ dialog: document.querySelector('#ar-photo-filter'), openButton: document.querySelector('#photo-filter-open') });
 
 const query = new URLSearchParams(location.search);
 const tree = findARTree(query.get('tree') ?? undefined);
@@ -125,4 +129,4 @@ if (query.get('tree') === 'diy') {
   window.addEventListener('pagehide', () => { controller?.abort(); preview?.dispose(); });
   window.addEventListener('pageshow', event => { if (event.persisted) loadPreview(); });
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { customAR?.dispose(); clearTimeout(prepareTimer); webXR?.dispose(); controller?.abort(); preview?.dispose(); launchFeedback?.dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { photoFilter.dispose(); customAR?.dispose(); clearTimeout(prepareTimer); webXR?.dispose(); controller?.abort(); preview?.dispose(); launchFeedback?.dispose(); });

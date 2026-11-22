@@ -69,7 +69,7 @@ export function createWebXRTree({ overlay, canvas, url, onStatus, onError, onEnd
     renderer.xr.getCamera().getWorldPosition(cameraPosition);
     placeSpatialTree(model, hitMatrix, cameraPosition); model.scale.setScalar(strength);
     placed = true; reticle.visible = false;
-    note.textContent = '聖誕樹已放好，可移動手機取景；以手機截圖保存合照。';
+    note.textContent = '聖誕樹已放好，隱藏工具後截圖，保留 Light up Christmas · Ger-Jyh 活動字樣。';
   }
   function zoom(value) { strength = spatialScale(value); scale.value = String(Math.round(strength * 100)); if (model) model.scale.setScalar(strength); }
   function pairDistance() { const [a, b] = [...pointers.values()]; return b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; }
