@@ -1,0 +1,73 @@
+#community-forest { --forest-gold: #e7d2a3; position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; color: #f3eee4; overflow: hidden; background: #081c27; }
+#community-forest[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; animation: forest-arrive .55s cubic-bezier(.2,.7,.2,1); }
+#community-forest::backdrop { background: #071323; }
+body.forest-open > main { transform: translateX(-22vw); opacity: .3; transition: transform .55s ease, opacity .55s ease; }
+#community-forest.is-leaving { animation: forest-depart .4s ease both; }
+#community-forest * { box-sizing: border-box; }
+#community-forest button { display: inline-flex; align-items: center; justify-content: center; width: auto; min-height: 44px; margin: 0; padding: 10px 16px; border: 1px solid #e7d2a34d; border-radius: 28px; color: var(--forest-gold); background: #0b2432a8; font: inherit; font-size: 14px; letter-spacing: .04em; cursor: pointer; }
+#community-forest button:disabled { opacity: .4; cursor: wait; }
+#community-forest button:focus-visible, #community-forest [tabindex]:focus-visible { outline: 2px solid #e7d2a3; outline-offset: 4px; }
+#community-forest [hidden] { display: none !important; }
+.forest-header { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center; padding: max(24px, env(safe-area-inset-top)) 5vw 16px; position: relative; z-index: 5; background: linear-gradient(#081c27, #081c27e8); }
+.forest-header [data-forest-back] { justify-self: start; }
+.forest-header [data-forest-refresh] { justify-self: end; }
+.forest-heading { text-align: center; }
+.forest-heading > p:first-child { margin: 0 0 9px; color: #a9b8ad; font: 11px/1.4 Arial,sans-serif; letter-spacing: .25em; }
+.forest-heading h2 { margin: 0; font-size: clamp(23px,3vw,36px); font-weight: 400; letter-spacing: .16em; color: #efdfbc; }
+.forest-heading [data-forest-count] { margin: 10px 0 0; font-size: 14px; color: #aabbb8; }
+.forest-landscape { position: relative; min-height: 0; isolation: isolate; background: radial-gradient(ellipse at 50% 105%,#46685b7d,transparent 70%),linear-gradient(#081c27,#102f39 70%,#1b4243); }
+.forest-landscape::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: .45; background-image: radial-gradient(circle at 14% 22%,#f4e6b5 0 1px,transparent 2px),radial-gradient(circle at 72% 12%,#f4e6b5 0 1px,transparent 2px),radial-gradient(circle at 39% 7%,#f4e6b5 0 1px,transparent 2px),radial-gradient(circle at 88% 35%,#b1cbd3 0 1px,transparent 2px); background-size: 330px 290px,470px 310px,530px 400px,410px 370px; }
+.forest-landscape::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 44%; pointer-events: none; background: linear-gradient(transparent,#77938413 60%,#75908121); z-index: 4; }
+.forest-scroll { position: absolute; inset: 0; overflow-x: auto; overflow-y: hidden; touch-action: pan-x; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #9fae9659 transparent; }
+.forest-grove { position: relative; height: 100%; min-height: 340px; }
+.forest-tree { position: absolute; left: var(--tree-x); bottom: var(--tree-bottom); width: var(--tree-size); margin: 0; transform: translateX(-50%); text-align: center; }
+.forest-tree::before { content: ''; position: absolute; bottom: 35px; left: 23%; width: 54%; height: 11px; border-radius: 50%; background: #00141b66; filter: blur(6px); z-index: -1; }
+.forest-tree img { display: block; width: 100%; height: auto; aspect-ratio: 420 / 540; object-fit: contain; }
+.forest-tree figcaption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 1.65; color: #d0dcd2; text-shadow: 0 1px 8px #00141b; }
+.forest-tree-note { display: block; font-size: 12px; line-height: 1.6; color: #9aafaa; }
+.forest-tree.is-mine figcaption, .forest-tree.is-mine .forest-tree-note { color: #f0d494; }
+.forest-tree.is-mine img { animation: forest-own-light 3s ease-out 1; }
+.forest-tree.image-missing::after { content: '圖片暫未載入'; display: block; padding: 40px 10px; font-size: 14px; color: #c0cbbd; background: #0b243273; border: 1px solid #e7d2a326; border-radius: 12px; }
+.forest-empty { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%); width: min(85%,500px); text-align: center; color: #d8decf; line-height: 1.9; }
+.forest-empty p { margin: 0 0 8px; font-size: 20px; letter-spacing: .08em; }
+.forest-empty span { font-size: 14px; color: #9eb4b1; }
+.forest-footer { position: relative; z-index: 5; padding: 16px 5vw max(18px,env(safe-area-inset-bottom)); display: flex; gap: 20px; justify-content: space-between; align-items: center; border-top: 1px solid #e7d2a31a; background: #0b232d; }
+.forest-footer p { margin: 0; max-width: 650px; font-size: 14px; line-height: 1.75; color: #b5c6bc; }
+.forest-footer [data-forest-local] { color: #e7d2a3; font-size: 14px; margin: 0 0 4px; }
+.forest-pagination { display: flex; gap: 8px; flex-shrink: 0; }
+#diy-editor .diy-header [data-open-forest] { border: 1px solid #eacb943b; font-size: 14px; min-height: 44px; padding: 8px 12px; }
+#diy-editor .diy-header-actions { flex-shrink: 0; }
+#diy-editor .diy-header-actions button { white-space: nowrap; }
+#diy-editor .diy-footer { gap: 12px; }
+#diy-editor .diy-shell { grid-template-rows: 82px minmax(0,1fr) auto; }
+#diy-editor .diy-footer p { max-width: 240px; line-height: 1.5; }
+#diy-editor .diy-submit-actions { display: flex; gap: 8px; flex-shrink: 0; }
+#diy-editor .diy-submit-actions [data-local-save] { background: transparent; color: #eacb94; }
+#diy-editor [data-publish-status] { color: #e7d2a3; }
+#diy-editor[aria-busy='true'] { cursor: progress; }
+@keyframes forest-arrive { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes forest-depart { to { transform: translateX(100%); } }
+@keyframes forest-own-light { 0%,45% { filter: drop-shadow(0 0 13px #f1cb7980); } 100% { filter: none; } }
+@media (max-width: 700px) {
+  .forest-header { grid-template-columns: auto 1fr auto; gap: 8px; padding: max(15px,env(safe-area-inset-top)) 12px 14px; }
+  #community-forest .forest-header button { padding: 8px 11px; font-size: 14px; }
+  .forest-heading > p:first-child { display: none; }
+  .forest-heading h2 { font-size: 22px; letter-spacing: .07em; }
+  .forest-heading [data-forest-count] { font-size: 12px; margin-top: 7px; }
+  .forest-tree { width: calc(var(--tree-size) * .8); }
+  .forest-footer { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 16px max(14px,env(safe-area-inset-bottom)); }
+  .forest-footer p { font-size: 14px; }
+  .forest-pagination { justify-content: center; }
+  #diy-editor .diy-footer { padding: 9px 12px; gap: 8px; }
+  #diy-editor .diy-shell { grid-template-rows: 64px minmax(180px,40%) minmax(0,1fr) auto; }
+  #diy-editor .diy-footer p { max-width: 130px; font-size: 11px; }
+  #diy-editor .diy-submit-actions button { padding: 10px; font-size: 13px; }
+  #diy-editor .diy-header-actions { gap: 5px; }
+  #diy-editor .diy-header { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  #diy-editor .diy-header > div:first-child { min-width: 0; }
+  #diy-editor .diy-header [data-open-forest] { font-size: 13px; padding: 7px 9px; }
+}
+@media (max-width: 390px) { #diy-editor .diy-footer { flex-direction: column; align-items: stretch; } #diy-editor .diy-footer p { max-width: none; margin: 0; font-size: 11px; } #diy-editor .diy-submit-actions { justify-content: flex-end; } }
+@media (max-width: 700px) and (max-height: 550px) { #diy-editor .diy-shell { grid-template-rows: 56px minmax(0,1fr) auto; } }
+@media (max-height: 560px) { .forest-header { padding-top: 10px; padding-bottom: 8px; } .forest-heading h2 { font-size: 21px; } .forest-heading > p:first-child { display: none; } .forest-heading [data-forest-count] { margin-top: 4px; } .forest-footer { padding-top: 7px; padding-bottom: 7px; } .forest-grove { min-height: 200px; } .forest-tree { width: calc(var(--tree-size) * .47); bottom: calc(var(--tree-bottom) * .85); } }
+@media (prefers-reduced-motion: reduce) { #community-forest[open],#community-forest.is-leaving,.forest-tree.is-mine img { animation: none; } body.forest-open > main { transition: none; transform: none; } }

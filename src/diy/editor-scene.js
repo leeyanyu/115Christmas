@@ -103,6 +103,16 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
   frameTree();
   return {
     frameTree,
+    captureImage() {
+      const oldSize = renderer.getSize(new THREE.Vector2()), oldRatio = renderer.getPixelRatio();
+      const captureCamera = camera.clone(), target = new THREE.Vector3(0, 2, 0), direction = camera.position.clone().sub(controls.target).normalize();
+      direction.y = THREE.MathUtils.clamp(direction.y, -.05, .35); direction.normalize();
+      captureCamera.aspect = 420 / 540; captureCamera.position.copy(target).addScaledVector(direction, 8.8); captureCamera.lookAt(target); captureCamera.updateProjectionMatrix();
+      try {
+        layer.select(undefined); renderer.setPixelRatio(1); renderer.setSize(420, 540, false); renderer.render(scene, captureCamera);
+        return canvas.toDataURL('image/webp', .82);
+      } finally { layer.select(selected); renderer.setPixelRatio(oldRatio); renderer.setSize(oldSize.x, oldSize.y, false); renderer.render(scene, camera); }
+    },
     showEngraving() { controls.target.set(0, .2, -.9); camera.position.set(0, 1.8, -3.2); controls.update(); render(); },
     apply(value) { current = value; layer.apply(value); layer.select(selected); render(); },
     select(id) { selected = id; layer.select(id); render(); },

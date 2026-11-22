@@ -1,10 +1,13 @@
 import { createDesignHistory, foliagePalette, paintPalette, MAX_ORNAMENTS, normalizeDesign } from './design.js';
 import { createEditorScene } from './editor-scene.js';
 
-export function createDesignEditor({ dialog, onSave, onOpen }) {
+export function createDesignEditor({ dialog, onSave, onOpen, onPublish, onPublished, onBrowse, publishConfigured = false }) {
   const $ = selector => dialog.querySelector(selector);
   let scene, history, selected, returnFocus, tool = 'view';
   let paintColor = paintPalette[0][1];
+  let upload, epoch = 0, busy = false, disabledBefore = [];
+  const publishNote = publishConfigured ? '送出後，作品圖片、刻字與祝福將公開展示。' : '目前為本機預覽，尚未連接共同收件服務。';
+  $('[data-send-forest]').textContent = publishConfigured ? '送出我的樹' : '預覽我的樹';
   const palette = $('[data-palette]');
   const paintPanel = $('[data-paint-panel]');
   foliagePalette.forEach(([name, color]) => {
@@ -45,6 +48,7 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
   function click(event) {
     const button = event.target.closest('button'); if (!button) return;
     if (button.hasAttribute('data-cancel')) dialog.close();
+    if (button.hasAttribute('data-open-forest') && !busy) { onSave(history.value); dialog.close(); onBrowse?.(); }
     if (button.hasAttribute('data-clear')) {
       const { title, blessing } = history.value; setTool('view'); paintPanel.open = false;
       $('[name="ornamentColor"]').value = '#eacb94'; $('[name="ornamentSize"]').value = '1';
@@ -72,8 +76,30 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
       configure();
     }
   }
-  function submit(event) { event.preventDefault(); onSave(history.value); dialog.close(); }
+  function submitting(value) {
+    busy = value; dialog.setAttribute('aria-busy', String(value));
+    $('.diy-panel').inert = value; $('.diy-preview').inert = value;
+    if (value) { disabledBefore = [...dialog.querySelectorAll('button:not([data-cancel])')].map(button => [button, button.disabled]); disabledBefore.forEach(([button]) => { button.disabled = true; }); }
+    else { disabledBefore.forEach(([button, disabled]) => { button.disabled = disabled; }); disabledBefore = []; }
+  }
+  async function submit(event) {
+    event.preventDefault(); if (busy) return;
+    if (!event.submitter?.hasAttribute('data-send-forest')) { onSave(history.value); dialog.close(); return; }
+    const value = history.value, current = epoch; upload = new AbortController(); submitting(true);
+    $('[data-publish-status]').textContent = publishConfigured ? '正在準備圖片並送出，請稍候…' : '正在準備你的森林預覽…';
+    try {
+      // Keep the editable draft even if the upload is cancelled or interrupted.
+      onSave(value);
+      const image = scene.captureImage();
+      const result = await onPublish(value, image, upload.signal);
+      if (epoch !== current || !dialog.open) return;
+      submitting(false); dialog.close(); onPublished?.(result);
+    } catch (error) {
+      if (epoch === current && dialog.open && error.name !== 'AbortError') $('[data-publish-status]').textContent = error.message || '送出未完成，作品仍在這裡，可以再試一次。';
+    } finally { if (epoch === current) { submitting(false); upload = undefined; } }
+  }
   function close() {
+    epoch++; upload?.abort(); upload = undefined; submitting(false);
     scene?.dispose(); scene = null;
     // A lost WebGL context stays attached to its canvas. A fresh element lets
     // the next visit allocate a clean context while releasing the old one.
@@ -88,7 +114,8 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
   paintPanel.addEventListener('toggle', togglePaint);
   return {
     open(design) {
-      if (dialog.open) return; returnFocus = document.activeElement; onOpen?.(); history = createDesignHistory(design); selected = undefined; tool = 'view';
+      if (dialog.open) return; epoch++; returnFocus = document.activeElement; onOpen?.(); history = createDesignHistory(design); selected = undefined; tool = 'view';
+      $('[data-publish-status]').textContent = publishNote;
       paintPanel.open = false; syncTools(); dialog.showModal();
       try { scene = createEditorScene($('canvas'), { design: history.value, onChange: commit, onSelect: select, onNotice: text => { $('[data-editor-notice]').textContent = text; } }); update(); $('[data-editor-notice]').textContent = '拖曳旋轉，雙指或滾輪縮放。'; }
       catch (error) { dialog.close(); console.error(error); onSave(null, '編輯器無法開啟，請確認瀏覽器已啟用硬體加速。'); }
