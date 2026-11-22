@@ -1,4 +1,4 @@
-#diy-open, #diy-switch { width: auto; padding: 10px 16px; background: transparent; color: #eacb94; border: 1px solid #eacb9450; font-size: 13px; }
+#diy-open, #diy-switch, #forest-open { width: auto; padding: 10px 16px; background: transparent; color: #eacb94; border: 1px solid #eacb9450; font-size: 13px; }
 #diy-editor { color: #f4e9d9; border: 1px solid #c9b88c55; border-radius: 16px; padding: 0; width: min(1040px, calc(100vw - 40px)); max-width: none; max-height: calc(100dvh - 40px); background: #0c1e2a; box-shadow: 0 24px 100px #0007; }
 #diy-editor::backdrop { background: #03101cba; backdrop-filter: blur(8px); }
 #diy-editor * { box-sizing: border-box; }

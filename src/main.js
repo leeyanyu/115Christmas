@@ -12,6 +12,10 @@ import { createChristmasMusic } from './integrations/christmas-music.js';
 import { christmasMusicMix } from './integrations/christmas-music-mix.js';
 import { createHandCamera } from './integrations/hand-camera.js';
 import { isDesktopHandCamera } from './integrations/hand-camera-platform.js';
+import './forest/style.css';
+import { forestEndpoint } from './forest/config.js';
+import { createForestService } from './forest/service.js';
+import { createCommunityForest } from './forest/view.js';
 
 const handCameraEnabled = isDesktopHandCamera();
 if (handCameraEnabled) {
@@ -42,6 +46,10 @@ let editor;
 let storage;
 try { storage = window.localStorage; } catch { /* Session-only editing remains available. */ }
 let { design: savedDesign, active: ownTree } = loadDesign(storage);
+const forestService = createForestService({ endpoint: forestEndpoint, storage });
+const forest = createCommunityForest({ dialog: document.querySelector('#community-forest'), service: forestService,
+  onOpen: () => { voice?.stop(); handCamera?.stop(); music.resetMotion(); document.querySelector('#interaction-guide').close(); } });
+document.querySelector('#forest-open').addEventListener('click', () => forest.open({ focusId: forestService.ownId }));
 const visit = document.querySelector('#diy-switch');
 function updateDesignUI() {
   document.querySelector('main').classList.toggle('own-tree', ownTree);
@@ -82,7 +90,12 @@ try {
     label.textContent = '聖誕樹正在登場';
     status.textContent = '燈光已點亮，讓聖誕樹來到舞台中央…';
   }, (delta, turning) => music.update(delta, turning), { initial: { design: savedDesign, active: ownTree }, onActivate: visitTree });
-  editor = createDesignEditor({ dialog: document.querySelector('#diy-editor'), onOpen: () => { voice?.stop(); handCamera?.stop(); music.resetMotion(); }, onSave: (design, error) => {
+  editor = createDesignEditor({ dialog: document.querySelector('#diy-editor'), onOpen: () => { voice?.stop(); handCamera?.stop(); music.resetMotion(); },
+    publishConfigured: forestService.configured,
+    onBrowse: () => forest.open({ focusId: forestService.ownId }),
+    onPublish: (design, image, signal) => forestService.configured ? forestService.submit(design, image, signal) : { local: true, item: forestService.previewDesign(design, image) },
+    onPublished: result => forest.open({ focusId: result.id || result.item.id, message: result.local ? undefined : result.visible ? '你的樹已種進森林。左右滑動，看看大家的心意。' : '作品已收件，目前尚未公開展示。' }),
+    onSave: (design, error) => {
     if (!design) { status.textContent = error; return; }
     savedDesign = design; ownTree = true; world.applyDesign(design, true);
     const stored = saveDesign(storage, design, true); updateDesignUI();
@@ -118,4 +131,5 @@ try {
   label.textContent = '無法啟動 3D 場景';
   status.textContent = '請使用支援 WebGL 2 的瀏覽器，並開啟硬體加速後重試。';
 }
-if (import.meta.hot) import.meta.hot.dispose(() => { editor?.dispose(); handCamera?.dispose(); guide?.dispose(); music.dispose(); voice?.dispose(); stageTools.dispose(); fullscreenControl.dispose(); world?.dispose(); });
+forest.openFromURL();
+if (import.meta.hot) import.meta.hot.dispose(() => { forest.dispose(); editor?.dispose(); handCamera?.dispose(); guide?.dispose(); music.dispose(); voice?.dispose(); stageTools.dispose(); fullscreenControl.dispose(); world?.dispose(); });

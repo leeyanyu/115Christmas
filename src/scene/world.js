@@ -99,6 +99,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
   const visitorGreeting = createVisitorGreeting({ canvas, visitors, element: document.querySelector('#visitor-greeting') });
   let celebration, campfire, designStage;
   const editorDialog = document.querySelector('#diy-editor');
+  const forestDialog = document.querySelector('#community-forest');
   const gratitude = createGratitudeLight({ tree, onChange: state => {
     gratitudePrompt.show(state);
     if (state.phase === 'blooming') celebration?.start(reducedMotion.matches);
@@ -170,7 +171,7 @@ export function createWorld(canvas, onComplete, onStageStart, onRotation = () =>
     frame = requestAnimationFrame(animate);
     const delta = Math.min((now - previous) / 1000, .25);
     previous = now;
-    if (document.hidden || editorDialog?.open) return;
+    if (document.hidden || editorDialog?.open || forestDialog?.open) return;
     if (designStage.isMoving) {
       // A stage handoff only animates its two batched models. Pause the full
       // invitation's simulation and timeline until the live tree is restored.
