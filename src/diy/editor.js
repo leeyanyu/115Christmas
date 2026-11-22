@@ -1,14 +1,29 @@
-import { createDesignHistory, foliagePalette, MAX_ORNAMENTS, normalizeDesign } from './design.js';
+import { createDesignHistory, foliagePalette, paintPalette, MAX_ORNAMENTS, normalizeDesign } from './design.js';
 import { createEditorScene } from './editor-scene.js';
 
 export function createDesignEditor({ dialog, onSave, onOpen }) {
   const $ = selector => dialog.querySelector(selector);
   let scene, history, selected, returnFocus, tool = 'view';
+  let paintColor = paintPalette[0][1];
   const palette = $('[data-palette]');
+  const paintPanel = $('[data-paint-panel]');
   foliagePalette.forEach(([name, color]) => {
     const button = document.createElement('button'); button.type = 'button'; button.title = name; button.setAttribute('aria-label', name); button.dataset.foliage = color; button.style.setProperty('--swatch', color); palette.append(button);
   });
-  function configure() { scene?.configure(tool, $('[name="ornamentColor"]').value, +$('[name="ornamentSize"]').value); }
+  paintPalette.forEach(([name, color]) => {
+    const button = document.createElement('button'); button.type = 'button'; button.title = name;
+    button.setAttribute('aria-label', name + '筆刷'); button.dataset.paintColor = color; button.style.setProperty('--swatch', color);
+    $('[data-paint-palette]').append(button);
+  });
+  function configure() { scene?.configure(tool, $('[name="ornamentColor"]').value, +$('[name="ornamentSize"]').value, paintColor); }
+  function syncTools() {
+    dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
+    dialog.querySelectorAll('[data-paint-color]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.paintColor === paintColor)));
+  }
+  function setTool(value) {
+    selected = undefined; scene?.select(); $('[data-delete]').disabled = true; tool = value; syncTools(); configure();
+    $('[data-editor-notice]').textContent = tool === 'view' ? '拖曳旋轉，雙指或滾輪縮放。' : tool === 'paint' ? '在枝葉上滑動彩繪；切換「旋轉欣賞」可畫另一面。' : tool === 'remove' ? '輕點裝飾即可移除。' : '點枝葉放上裝飾；點裝飾可選取，拖曳可換位置。';
+  }
   function update() {
     const value = history.value; scene?.apply(value);
     for (const name of ['title', 'blessing', 'engraving', 'foliageColor', 'starColor']) {
@@ -16,13 +31,14 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
       if (document.activeElement !== input) input.value = value[name];
     }
     $('[data-count]').textContent = `${value.ornaments.length} / ${MAX_ORNAMENTS}`;
-    $('[data-undo]').disabled = !history.canUndo; $('[data-redo]').disabled = !history.canRedo;
+    dialog.querySelectorAll('[data-undo]').forEach(b => { b.disabled = !history.canUndo; }); $('[data-redo]').disabled = !history.canRedo;
+    $('[data-clear-paint]').disabled = !value.paint.length;
     const ornament = value.ornaments.find(o => o.id === selected);
     if (!ornament) selected = undefined;
     scene?.select(selected); $('[data-delete]').disabled = !ornament;
     if (ornament) { $('[name="ornamentColor"]').value = ornament.color; $('[name="ornamentSize"]').value = ornament.size; }
     palette.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.foliage === value.foliageColor)));
-    configure();
+    syncTools(); configure();
   }
   const commit = (value, merge) => { history.commit(value, merge); update(); };
   function select(id) { selected = id; update(); }
@@ -30,15 +46,16 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
     const button = event.target.closest('button'); if (!button) return;
     if (button.hasAttribute('data-cancel')) dialog.close();
     if (button.hasAttribute('data-clear')) {
-      const { title, blessing } = history.value; selected = undefined; tool = 'view';
+      const { title, blessing } = history.value; setTool('view'); paintPanel.open = false;
       $('[name="ornamentColor"]').value = '#eacb94'; $('[name="ornamentSize"]').value = '1';
-      dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
       commit(normalizeDesign({ title, blessing })); scene?.frameTree();
-      $('[data-editor-notice]').textContent = '裝飾與刻字已清除，配色恢復原樣；可以按「復原」找回。';
+      $('[data-editor-notice]').textContent = '彩繪、裝飾與刻字已清除，配色恢復原樣；可以按「復原」找回。';
     }
-    if (button.dataset.tool) { selected = undefined; scene?.select(); $('[data-delete]').disabled = true; tool = button.dataset.tool; dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b === button))); $('[data-editor-notice]').textContent = tool === 'view' ? '拖曳旋轉，雙指或滾輪縮放。' : tool === 'remove' ? '輕點裝飾即可移除。' : '點枝葉放上裝飾；點裝飾可選取，拖曳可換位置。'; configure(); }
+    if (button.dataset.tool) setTool(button.dataset.tool);
+    if (button.dataset.paintColor) { paintColor = button.dataset.paintColor; setTool('paint'); }
+    if (button.hasAttribute('data-clear-paint')) { commit({ ...history.value, paint: [] }); $('[data-editor-notice]').textContent = '彩繪已清除，其他裝飾和刻字保留；可按「復原一筆」找回。'; }
     if (button.dataset.view) {
-      tool = 'view'; dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool))); configure();
+      setTool('view');
       if (button.dataset.view === 'engraving') scene?.showEngraving(); else scene?.frameTree();
       $('[data-editor-notice]').textContent = button.dataset.view === 'engraving' ? '拖曳欣賞刻字，按「看整棵樹」返回。' : '拖曳旋轉，雙指或滾輪縮放。';
     }
@@ -63,14 +80,19 @@ export function createDesignEditor({ dialog, onSave, onOpen }) {
     const canvas = $('canvas'); canvas.replaceWith(canvas.cloneNode(false));
     returnFocus?.focus();
   }
+  function togglePaint() {
+    if (!dialog.open || !history) return;
+    if (paintPanel.open) setTool('paint'); else if (tool === 'paint') setTool('view');
+  }
   dialog.addEventListener('click', click); dialog.addEventListener('input', input); $('form').addEventListener('submit', submit); dialog.addEventListener('close', close);
+  paintPanel.addEventListener('toggle', togglePaint);
   return {
     open(design) {
       if (dialog.open) return; returnFocus = document.activeElement; onOpen?.(); history = createDesignHistory(design); selected = undefined; tool = 'view';
-      dialog.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool))); dialog.showModal();
+      paintPanel.open = false; syncTools(); dialog.showModal();
       try { scene = createEditorScene($('canvas'), { design: history.value, onChange: commit, onSelect: select, onNotice: text => { $('[data-editor-notice]').textContent = text; } }); update(); $('[data-editor-notice]').textContent = '拖曳旋轉，雙指或滾輪縮放。'; }
       catch (error) { dialog.close(); console.error(error); onSave(null, '編輯器無法開啟，請確認瀏覽器已啟用硬體加速。'); }
     },
-    dispose() { scene?.dispose(); dialog.removeEventListener('click', click); dialog.removeEventListener('input', input); $('form').removeEventListener('submit', submit); dialog.removeEventListener('close', close); },
+    dispose() { scene?.dispose(); paintPanel.removeEventListener('toggle', togglePaint); dialog.removeEventListener('click', click); dialog.removeEventListener('input', input); $('form').removeEventListener('submit', submit); dialog.removeEventListener('close', close); },
   };
 }

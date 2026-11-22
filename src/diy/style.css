@@ -60,3 +60,20 @@ main.design-changing #reveal { opacity: 0; }
 
 #diy-entrance { width: auto; min-height: 38px; margin: 0; padding: 6px 12px; gap: 7px; border: 1px solid #d7c38f66; border-radius: 20px; background: transparent; color: #d8c69e; font: 11px/1.5 "Noto Serif TC", serif; letter-spacing: .08em; }
 #diy-entrance[hidden] { display: none; }
+
+/* Painting stays inside the existing DIY dialog, closed until requested. */
+#diy-editor .diy-paint { margin: 0 0 20px; border: 1px solid #eacb9435; border-radius: 8px; }
+#diy-editor .diy-paint summary { display: flex; justify-content: space-between; align-items: center; min-height: 48px; padding: 12px; list-style: none; color: #eacb94; font-size: 14px; cursor: pointer; }
+#diy-editor .diy-paint summary::-webkit-details-marker { display: none; }
+#diy-editor .diy-paint summary::after { content: '＋'; font: 18px/1 sans-serif; }
+#diy-editor .diy-paint[open] summary::after { content: '−'; }
+#diy-editor .diy-paint summary:focus-visible { outline: 2px solid #eacb94; outline-offset: 3px; }
+#diy-editor .diy-paint-body { padding: 0 12px 14px; }
+#diy-editor .diy-paint p { margin: 0 0 12px; color: #b7c6c5; font-size: 14px; line-height: 1.65; }
+#diy-editor .diy-paint-palette { display: flex; gap: 10px; margin-bottom: 14px; }
+#diy-editor [data-paint-color] { width: 44px; height: 44px; padding: 0; background: var(--swatch); border: 3px solid #0c1e2a; border-radius: 50%; }
+#diy-editor [data-paint-color][aria-pressed="true"] { background: var(--swatch); border-color: #0c1e2a; outline: 1px solid #eacb94; outline-offset: 2px; }
+#diy-editor .diy-paint-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+#diy-editor .diy-paint button { min-height: 44px; font-size: 14px; }
+#diy-editor .diy-paint .diy-actions { flex-wrap: wrap; }
+#diy-editor canvas.is-painting { cursor: crosshair; }
