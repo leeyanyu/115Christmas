@@ -30,10 +30,10 @@ export function createDistantModel(design, bare) {
       material.userData.baseColor = material.color.clone();
       output.add(new THREE.Mesh(o.geometry.clone().applyMatrix4(o.matrixWorld), material)); return;
     }
-    const key = [m.type, m.color.getHex(), m.metalness, m.roughness, m.emissive?.getHex(), m.emissiveIntensity].join('-');
+    const key = [m.type, m.color.getHex(), m.metalness, m.roughness, m.emissive?.getHex(), m.emissiveIntensity, m.vertexColors].join('-');
     if (!batches.has(key)) batches.set(key, { material: m.clone(), geometries: [] });
     const geometry = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-    for (const attribute of Object.keys(geometry.attributes)) if (!['position', 'normal', 'uv'].includes(attribute)) geometry.deleteAttribute(attribute);
+    for (const attribute of Object.keys(geometry.attributes)) if (!['position', 'normal', 'uv', ...(m.vertexColors ? ['color'] : [])].includes(attribute)) geometry.deleteAttribute(attribute);
     if (!geometry.attributes.uv) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count * 2), 2));
     geometry.applyMatrix4(o.matrixWorld); batches.get(key).geometries.push(geometry);
   });

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createDisplayTree } from './design-layer.js';
-import { MAX_ORNAMENTS } from './design.js';
+import { MAX_ORNAMENTS, MAX_PAINT_DABS, PAINT_RADIUS } from './design.js';
 
 export function createEditorScene(canvas, { design, onChange, onSelect, onNotice }) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
@@ -14,7 +14,7 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
   const controls = new OrbitControls(camera, canvas); controls.target.set(0, 2, 0); controls.enablePan = false;
   controls.minPolarAngle = Math.PI * .25; controls.maxPolarAngle = Math.PI * .62; controls.rotateSpeed = .6;
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), normalMatrix = new THREE.Matrix3();
-  let current = design, tool = 'view', color = '#eacb94', size = 1, selected, down, frame, disposed = false;
+  let current = design, tool = 'view', color = '#eacb94', paintColor = '#eacb94', size = 1, selected, down, frame, disposed = false;
   const render = () => { if (!frame && !disposed) frame = requestAnimationFrame(() => { frame = 0; renderer.render(scene, camera); }); };
   controls.addEventListener('change', render);
   function frameTree() {
@@ -34,21 +34,43 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
     while (object && !object.userData.designId) object = object.parent;
     return object?.userData.designId;
   }
-  function surface(event) {
+  function surface(event, offset = .075) {
     const contact = hit(event, tree.layers); if (!contact) return null;
     const normal = contact.face.normal.clone().applyMatrix3(normalMatrix.getNormalMatrix(contact.object.matrixWorld)).normalize();
-    const position = tree.root.worldToLocal(contact.point.clone().addScaledVector(normal, .075));
+    const position = tree.root.worldToLocal(contact.point.clone().addScaledVector(normal, offset));
     normal.transformDirection(tree.root.matrixWorld.clone().invert());
     return { position: position.toArray(), normal: normal.toArray() };
   }
+  function paintAt(event) {
+    const contact = surface(event, 0);
+    if (!contact) { down.last = null; return; }
+    const position = new THREE.Vector3().fromArray(contact.position), normal = new THREE.Vector3().fromArray(contact.normal);
+    const last = down.last, distance = last ? position.distanceTo(last.position) : 0;
+    if (last && distance < PAINT_RADIUS * .3) return;
+    const connected = last && distance < PAINT_RADIUS * 3 && normal.dot(last.normal) > .25;
+    const steps = connected ? Math.max(1, Math.ceil(distance / (PAINT_RADIUS * .32))) : 1;
+    for (let i = 1; i <= steps && down.draft.paint.length < MAX_PAINT_DABS; i++) {
+      const point = connected ? last.position.clone().lerp(position, i / steps) : position;
+      const direction = connected ? last.normal.clone().lerp(normal, i / steps).normalize() : normal;
+      down.draft.paint.push({ color: paintColor, radius: PAINT_RADIUS, position: point.toArray(), normal: direction.toArray() });
+    }
+    down.last = { position, normal }; layer.apply(down.draft); render();
+    if (down.draft.paint.length === MAX_PAINT_DABS) onNotice('這次彩繪已畫滿，可以完成欣賞，或先復原、清除彩繪再畫。');
+  }
   function start(event) {
-    if (event.isPrimary === false) { down = null; return; }
+    if (event.isPrimary === false) { cancel(); return; }
     if (event.button !== 0 || tool === 'view') return;
+    if (tool === 'paint') {
+      if (current.paint.length >= MAX_PAINT_DABS) { onNotice('這次彩繪已畫滿，可以完成欣賞，或先復原、清除彩繪再畫。'); return; }
+      down = { painting: true, pointer: event.pointerId, draft: { ...current, paint: [...current.paint] } };
+      canvas.setPointerCapture(event.pointerId); paintAt(event); return;
+    }
     const id = ornamentAt(event); down = { id, x: event.clientX, y: event.clientY, moved: false, pointer: event.pointerId, surface: null };
     canvas.setPointerCapture(event.pointerId);
   }
   function move(event) {
     if (!down || down.pointer !== event.pointerId) return;
+    if (down.painting) { paintAt(event); return; }
     down.moved ||= Math.hypot(event.clientX - down.x, event.clientY - down.y) > 7;
     if (down.moved && down.id && tool !== 'remove') {
       const contact = surface(event); if (!contact) return;
@@ -58,6 +80,11 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
   }
   function end(event) {
     const tap = down; down = null; if (!tap || tap.pointer !== event.pointerId) return;
+    if (tap.painting) {
+      if (tap.draft.paint.length > current.paint.length) onChange(tap.draft);
+      else { layer.apply(current); render(); }
+      return;
+    }
     if (tap.moved) { if (tap.surface) { onChange({ ...current, ornaments: current.ornaments.map(o => o.id === tap.id ? { ...o, ...tap.surface } : o) }); onSelect(tap.id); } else { layer.apply(current); render(); } return; }
     if (tap.id) {
       if (tool === 'remove') onChange({ ...current, ornaments: current.ornaments.filter(o => o.id !== tap.id) });
@@ -70,18 +97,20 @@ export function createEditorScene(canvas, { design, onChange, onSelect, onNotice
     const id = Math.max(0, ...current.ornaments.map(o => o.id)) + 1; selected = id;
     onChange({ ...current, ornaments: [...current.ornaments, { id, type: tool, color, size, ...contact }] }); onSelect(id);
   }
-  const cancel = () => { down = null; layer.apply(current); render(); };
+  function cancel() { if (!down) return; down = null; layer.apply(current); render(); }
   canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', cancel);
+  canvas.addEventListener('lostpointercapture', cancel);
   frameTree();
   return {
     frameTree,
     showEngraving() { controls.target.set(0, .2, -.9); camera.position.set(0, 1.8, -3.2); controls.update(); render(); },
     apply(value) { current = value; layer.apply(value); layer.select(selected); render(); },
     select(id) { selected = id; layer.select(id); render(); },
-    configure(nextTool, nextColor, nextSize) { tool = nextTool; color = nextColor; size = nextSize; controls.enabled = tool === 'view'; },
+    configure(nextTool, nextColor, nextSize, nextPaintColor = '#eacb94') { if (nextTool !== tool) cancel(); tool = nextTool; color = nextColor; size = nextSize; paintColor = nextPaintColor; controls.enabled = tool === 'view'; canvas.classList.toggle('is-painting', tool === 'paint'); },
     dispose() {
       disposed = true; cancelAnimationFrame(frame); observer.disconnect(); controls.dispose();
       canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', cancel);
+      canvas.removeEventListener('lostpointercapture', cancel);
       layer.dispose(); const geometries = new Set(), materials = new Set(); tree.root.traverse(o => { if (o.geometry) geometries.add(o.geometry); if (o.material) materials.add(o.material); }); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); renderer.dispose(); renderer.forceContextLoss();
     },
   };

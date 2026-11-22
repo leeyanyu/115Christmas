@@ -1,5 +1,10 @@
 export const DESIGN_KEY = 'gj-christmas-diy-v1';
 export const MAX_ORNAMENTS = 36;
+export const MAX_PAINT_DABS = 256;
+export const PAINT_RADIUS = .23;
+export const paintPalette = [
+  ['暖金', '#eacb94'], ['柔粉', '#c78b9a'], ['湖藍', '#76acc5'], ['淡紫', '#a997ce'],
+];
 export const ornamentTypes = ['ball', 'star', 'bow', 'gift'];
 export const foliagePalette = [
   ['經典綠', '#164d3c'], ['鼠尾草', '#96af9b'], ['雪白', '#dde7e6'],
@@ -23,8 +28,18 @@ export function normalizeDesign(value = {}) {
       position: [clamp(item.position[0], -1.8, 1.8), clamp(item.position[1], .6, 3.75), clamp(item.position[2], -1.8, 1.8)],
       normal: length > .0001 ? raw.map(n => n / length) : [0, 0, 1] });
   }
+  const paint = [];
+  for (const dab of Array.isArray(value.paint) ? value.paint.slice(0, MAX_PAINT_DABS) : []) {
+    if (!dab || !Array.isArray(dab.position) || dab.position.length !== 3 || !dab.position.every(Number.isFinite) ||
+      !Array.isArray(dab.normal) || dab.normal.length !== 3 || !dab.normal.every(Number.isFinite)) continue;
+    const length = Math.hypot(...dab.normal);
+    if (length < .0001) continue;
+    paint.push({ color: color(dab.color, '#eacb94'), radius: clamp(dab.radius, .08, .5, PAINT_RADIUS),
+      position: [clamp(dab.position[0], -1.8, 1.8), clamp(dab.position[1], .1, 4.2), clamp(dab.position[2], -1.8, 1.8)],
+      normal: dab.normal.map(n => n / length) });
+  }
   return { version: 1, title: text(value.title, 28) || '我的聖誕樹', blessing: text(value.blessing, 90), engraving: text(value.engraving, 16).trim(),
-    foliageColor: color(value.foliageColor, '#164d3c'), starColor: color(value.starColor, '#eacb94'), ornaments };
+    foliageColor: color(value.foliageColor, '#164d3c'), starColor: color(value.starColor, '#eacb94'), ornaments, paint };
 }
 
 export function loadDesign(storage) {

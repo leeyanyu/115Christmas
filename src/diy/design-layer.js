@@ -3,6 +3,7 @@ import { createTree } from '../scene/tree.js';
 import { createOrnamentFactory } from './ornaments.js';
 import { createPedestalEngraving } from './pedestal-engraving.js';
 import { normalizeDesign } from './design.js';
+import { createTreePaint } from './tree-paint.js';
 
 export function createDesignLayer(tree) {
   const original = tree.animated.slice(0, -1), originalStar = tree.starMaterial.color.clone();
@@ -11,6 +12,7 @@ export function createDesignLayer(tree) {
   const group = new THREE.Group(); group.name = 'diy-ornaments'; tree.root.add(group);
   const items = new Map(), factory = createOrnamentFactory(), normal = new THREE.Vector3(), front = new THREE.Vector3(0, 0, 1);
   const engraving = createPedestalEngraving(tree);
+  const paint = createTreePaint(tree);
   let active = false, selected;
   return {
     get targets() { return active ? [...items.values()] : []; },
@@ -20,6 +22,7 @@ export function createDesignLayer(tree) {
       engraving.set(design?.engraving || '');
       original.forEach(o => { o.visible = !active; }); group.visible = active;
       foliage.forEach(m => m.color.copy(design ? new THREE.Color(design.foliageColor) : originalColors.get(m)));
+      paint.apply(design?.paint, design?.foliageColor);
       tree.starMaterial.color.copy(design ? new THREE.Color(design.starColor) : originalStar);
       const wanted = new Set(design?.ornaments.map(o => o.id));
       for (const [id, item] of items) if (!wanted.has(id)) { group.remove(item); factory.disposeItem(item); items.delete(id); }
@@ -36,12 +39,13 @@ export function createDesignLayer(tree) {
     select(id) { selected = id; for (const [key, item] of items) { item.userData.colorMaterial.emissive.set(key === id ? 0xeacb94 : 0x000000); item.userData.colorMaterial.emissiveIntensity = key === id ? .12 : 0; } },
     syncGrowth() {
       if (!active) return;
+      paint.syncLighting();
       for (const item of items.values()) {
         const layer = tree.layers[Math.max(0, Math.min(8, Math.round((item.position.y - .65) / .34)))];
         item.scale.setScalar(item.userData.baseSize * Math.max(.001, layer.scale.x));
       }
     },
-    dispose() { engraving.dispose(); tree.root.remove(group); items.forEach(item => factory.disposeItem(item)); items.clear(); factory.dispose(); },
+    dispose() { paint.dispose(); engraving.dispose(); tree.root.remove(group); items.forEach(item => factory.disposeItem(item)); items.clear(); factory.dispose(); },
   };
 }
 
