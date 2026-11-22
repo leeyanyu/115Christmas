@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="520" viewBox="0 0 1440 520">
+  <defs>
+    <path id="fir" d="M80 4C72 36 59 63 48 86L63 81 30 151 49 143 9 234 36 222-7 326 21 316-23 415Q23 431 63 416L62 452 97 452 96 416Q135 432 181 415L139 316 166 327 125 223 150 235 111 144 128 152 97 82 110 88Q90 43 80 4Z"/>
+    <path id="pine" d="M71 6 50 76 60 71 31 137 46 131 10 211 29 203-6 290 15 283-24 387Q18 405 57 390L57 427 85 427 85 390Q128 407 167 387L128 282 149 292 115 204 134 213 101 131 114 138 84 72 96 79Z"/>
+  </defs>
+  <g fill="#000">
+    <use href="#fir" transform="translate(-76 19) scale(1.11)"/>
+    <use href="#pine" transform="translate(71 138) scale(.84)"/>
+    <use href="#fir" transform="translate(180 79) scale(.97)"/>
+    <use href="#pine" transform="translate(310 11) scale(1.18)"/>
+    <use href="#fir" transform="translate(460 163) scale(.74)"/>
+    <use href="#fir" transform="translate(545 37) scale(1.06)"/>
+    <use href="#pine" transform="translate(682 133) scale(.89)"/>
+    <use href="#fir" transform="translate(802 8) scale(1.11)"/>
+    <use href="#pine" transform="translate(970 102) scale(.94)"/>
+    <use href="#fir" transform="translate(1085 58) scale(1.02)"/>
+    <use href="#pine" transform="translate(1244 147) scale(.82)"/>
+    <use href="#fir" transform="translate(1358 19) scale(1.11)"/>
+  </g>
+</svg>

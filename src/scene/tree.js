@@ -79,6 +79,6 @@ export function createTree() {
   rim.rotation.x = Math.PI / 2;
   rim.position.y = .08;
   root.add(rim);
-  root.add(createPedestalSignature());
-  return { root, bulbs, starMaterial, layers, animated, trunk, wire };
+  const signature = createPedestalSignature(); root.add(signature);
+  return { root, bulbs, starMaterial, layers, animated, trunk, wire, pedestalParts: [pedestal, rim, signature] };
 }

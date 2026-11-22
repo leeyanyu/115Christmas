@@ -85,7 +85,10 @@
     </main>
     <dialog id="community-forest" aria-labelledby="forest-title">
       <header class="forest-header"><button type="button" data-forest-back aria-label="返回聖誕樹">返回</button><div class="forest-heading"><p>EVERY LITTLE TREE, A LITTLE WONDER</p><h2 id="forest-title">大家的聖誕森林</h2><p data-forest-count>讓每一份心意，種進冬夜。</p></div><button type="button" data-forest-refresh aria-label="重新載入森林作品">更新</button></header>
-      <div class="forest-landscape"><div class="forest-scroll" data-forest-scroll tabindex="0" role="region" aria-label="森林作品，左右滑動瀏覽"><div class="forest-grove" data-forest-grove></div></div><div class="forest-empty" data-forest-empty hidden><p>森林正等著第一棵樹。</p><span>在 DIY 裡完成創作，讓冬夜多一份色彩。</span></div></div>
+      <div class="forest-landscape">
+        <div class="forest-scenery" aria-hidden="true"><span class="forest-silhouettes is-far"></span><span class="forest-silhouettes is-middle"></span><span class="forest-silhouettes is-near"></span></div>
+        <div class="forest-scroll" data-forest-scroll tabindex="0" role="region" aria-label="森林作品，左右滑動瀏覽"><div class="forest-grove" data-forest-grove></div></div><div class="forest-empty" data-forest-empty hidden><p>森林正等著第一棵樹。</p><span>在 DIY 裡完成創作，讓冬夜多一份色彩。</span></div>
+      </div>
       <div class="forest-footer"><div><p data-forest-local hidden>本機預覽</p><p data-forest-status role="status" aria-live="polite">左右滑動，看看每一棵不同的心意。</p></div><div class="forest-pagination"><button type="button" data-forest-previous hidden>回上一片</button><button type="button" data-forest-next hidden>再往森林走</button></div></div>
     </dialog>
     <script type="module" src="/src/main.js"></script>
